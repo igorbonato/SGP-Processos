@@ -50,19 +50,28 @@ do nome parecido — armadilha clássica de entrevista).
 
 ## Regra prática para reconhecer spec vs impl no dia a dia
 
-Se o pacote/import começa com `jakarta.*` (ou o antigo `javax.*`), é especificação — um contrato que
-qualquer fornecedor pode implementar. Se começa com `org.hibernate.*`, `org.springframework.*`,
-`com.querydsl.*` etc., é implementação/framework concreto de um fornecedor específico.
+Se o pacote/import começa com `javax.*` (neste projeto) ou `jakarta.*` (em projetos mais novos), é
+especificação — um contrato que qualquer fornecedor pode implementar. Se começa com `org.hibernate.*`,
+`org.springframework.*`, `com.querydsl.*` etc., é implementação/framework concreto de um fornecedor específico.
 
-| Prefixo do pacote | Natureza |
-|---|---|
-| `jakarta.persistence.*` | Spec (JPA) |
-| `org.hibernate.*` | Implementação (Hibernate) |
-| `jakarta.validation.*` | Spec (Bean Validation) |
-| `org.hibernate.validator.*` | Implementação (Hibernate Validator) |
-| `jakarta.servlet.*` | Spec (Servlet) |
-| `org.apache.catalina.*` | Implementação (Tomcat) |
-| `org.springframework.*` | Framework Spring (não é uma spec Jakarta EE — é uma alternativa/complemento) |
+> **Atenção com uma pegadinha de nomenclatura:** "Jakarta EE 8" (o que o edital pede) **ainda usa o
+> namespace `javax.*`**. A Eclipse Foundation assumiu a especificação da Oracle em 2017/2018 e a rebatizou
+> de "Jakarta EE", mas por motivos de marca registrada (a Oracle não cedeu os direitos sobre o prefixo de
+> pacote `javax`), o namespace só foi de fato renomeado para `jakarta.*` a partir do **Jakarta EE 9**
+> (final de 2020) — que é a versão que o **Spring Boot 3** adota. Ou seja: `javax.persistence.Entity` e
+> `jakarta.persistence.Entity` são **a mesma anotação, versões diferentes da spec**, não coisas
+> diferentes. Como este projeto usa Spring Boot 2.3.x (ver decisão de versão no `pom.xml` raiz), tudo
+> aqui é `javax.*`.
+
+| Prefixo do pacote (neste projeto — Jakarta EE 8 / Spring Boot 2.x) | Equivalente em Jakarta EE 9+ / Spring Boot 3 | Natureza |
+|---|---|---|
+| `javax.persistence.*` | `jakarta.persistence.*` | Spec (JPA) |
+| `org.hibernate.*` | `org.hibernate.*` (mesmo pacote) | Implementação (Hibernate) |
+| `javax.validation.*` | `jakarta.validation.*` | Spec (Bean Validation) |
+| `org.hibernate.validator.*` | `org.hibernate.validator.*` | Implementação (Hibernate Validator) |
+| `javax.servlet.*` | `jakarta.servlet.*` | Spec (Servlet) |
+| `org.apache.catalina.*` | `org.apache.catalina.*` | Implementação (Tomcat) |
+| `org.springframework.*` | `org.springframework.*` | Framework Spring (não é uma spec Jakarta EE — é uma alternativa/complemento) |
 
 ## Onde isso "dói" na prática (e por que o edital cobra)
 

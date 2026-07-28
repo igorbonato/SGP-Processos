@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ===========================================================================================
+    POM PAI (AGGREGATOR) — sgp-processos
+    ===========================================================================================
+    Paralelo .NET: pense neste arquivo como uma fusão de duas coisas que no .NET são separadas:
+
+      1) Um "Directory.Build.props" / "Directory.Packages.props" — versões e configurações
+         COMPARTILHADAS por todos os projetos da solução, declaradas uma vez só.
+      2) O próprio arquivo ".sln" (solution) — a lista de quais projetos ("módulos", aqui)
+         compõem esta solução, para que "mvn install" na raiz saiba compilar todos em ordem.
+
+    Diferença de mentalidade importante: no .NET, um .csproj referencia pacotes NuGet
+    individualmente com <PackageReference Include="X" Version="Y"/> — a versão vai JUNTO da
+    referência, em cada projeto. No Maven, o padrão profissional é o oposto: a VERSÃO fica
+    centralizada aqui no POM pai (dentro de <dependencyManagement>), e cada módulo filho só
+    declara "eu uso a lib X", sem repetir a versão. Isso evita o problema clássico de dois
+    projetos da mesma solução usando versões diferentes da mesma lib por esquecimento.
+    ===========================================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <!-- Versão do "schema" do próprio pom.xml. Sempre 4.0.0 hoje em dia — não tem paralelo no
+         .csproj (que também versiona seu schema via o atributo Sdk="Microsoft.NET.Sdk", mas de
+         forma bem menos visível). -->
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        =======================================================================================
+        <parent> — HERANÇA DE POM
+        =======================================================================================
+        Aqui dizemos: "este POM herda configurações do spring-boot-starter-parent". Isso é um
+        conceito que NÃO existe em .csproj — o mais próximo seria herdar de um Directory.Build.props
+        em uma pasta pai, mas aqui é herança de verdade, com versionamento explícito de um artefato.
+
+        O que o spring-boot-starter-parent nos dá de graça:
+          - Um <dependencyManagement> gigante com as versões de CENTENAS de bibliotecas do
+            ecossistema Spring já testadas para funcionar juntas (Jackson, SLF4J, JUnit, etc.).
+            É por isso que, nos módulos filhos, você raramente escreve <version> em uma dependência
+            Spring — a versão "certa" já vem decidida por esta herança.
+          - Configuração padrão do plugin de compilação, do maven-surefire (testes), de encoding.
+          - O plugin "spring-boot-maven-plugin" pré-configurado (usado para gerar o JAR/WAR executável).
+
+        IMPORTANTE — decisão de versão explicada:
+        Fixamos Spring Boot 2.3.12.RELEASE (não 3.x) DE PROPÓSITO. O edital pede "Jakarta EE 8"
+        (namespace javax.*, ver docs/05) e "Zuul". O Spring Cloud REMOVEU o suporte ao Netflix
+        Zuul a partir do release train "2020.0 (Ilford)", que só é compatível com Spring Boot 2.4+
+        rumo ao 3.x (namespace jakarta.*). Ou seja: não existe combinação real de "Spring Boot 3 +
+        Zuul funcionando". Para termos um Zuul que de fato compila e roteia, precisamos ficar na
+        geração Spring Boot 2.3.x / Spring Cloud Hoxton — que, como bônus, é exatamente a geração
+        que ainda fala Jakarta EE 8 (javax.*), fechando com o resto do edital.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.12.RELEASE</version>
+        <!-- relativePath vazio = "não procure este parent em ../pom.xml, busque no repositório
+             Maven Central". Sem isso, o Maven tentaria achar o parent como projeto irmão local. -->
+        <relativePath/>
+    </parent>
+
+    <!--
+        =======================================================================================
+        IDENTIDADE DO PROJETO (GAV — GroupId / ArtifactId / Version)
+        =======================================================================================
+        Paralelo .NET: o trio GroupId+ArtifactId+Version é o equivalente Maven ao
+        <PackageId> + <Version> de um .csproj/.nuspec — só que aqui é obrigatório para TODO
+        projeto (mesmo os que nunca serão publicados como lib reutilizável), porque o Maven usa
+        isso como chave para resolver dependências entre módulos da própria solution.
+
+        groupId: convenção de domínio invertido (br.jus.trt4), como um "namespace raiz" do C#,
+        mas com a expectativa (não obrigatória tecnicamente) de ser único no mundo — outros times
+        usariam com.suaempresa.
+    -->
+    <groupId>br.jus.trt4</groupId>
+    <artifactId>sgp-processos</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <!-- packaging=pom (e não "jar" ou "war") significa: "este módulo não gera artefato, ele só
+         agrupa/orquestra outros módulos". É a marca registrada de um POM aggregator. -->
+    <packaging>pom</packaging>
+
+    <name>SGP-Processos (parent)</name>
+    <description>
+        Sistema de Gestão de Processos Judiciais — projeto de estudo Java corporativo
+        (Spring Boot, Spring Cloud, Jakarta EE 8, JPA/Hibernate, MapStruct, JWT).
+    </description>
+
+    <!--
+        =======================================================================================
+        <modules> — OS PROJETOS DA "SOLUTION"
+        =======================================================================================
+        Paralelo .NET: isto é o conteúdo do seu .sln — a lista de projetos que compõem a solução.
+        Cada string aqui é um NOME DE PASTA (relativo a esta), e o Maven espera achar um pom.xml
+        dentro dela. Rodar "mvn install" nesta pasta raiz compila TODOS os módulos listados, na
+        ordem correta de dependência (o Maven calcula o grafo sozinho).
+
+        Só declaramos "eureka-server" por enquanto (Fase 1). "api-gateway" e "processo-service"
+        entram nas Fases 6 e 2-5 respectivamente — declarar um módulo cuja pasta não existe ainda
+        quebra o build, então a lista cresce fase a fase.
+    -->
+    <modules>
+        <module>eureka-server</module>
+    </modules>
+
+    <!--
+        =======================================================================================
+        <properties> — VARIÁVEIS REUTILIZÁVEIS DO POM
+        =======================================================================================
+        Paralelo .NET: parecido com <PropertyGroup> de um .csproj/Directory.Build.props
+        (ex.: <TargetFramework>, <LangVersion>) — definimos uma vez, referenciamos como
+        ${nome.da.propriedade} em qualquer lugar deste POM ou dos filhos.
+    -->
+    <properties>
+        <!-- java.version é uma propriedade ESPECIAL que o spring-boot-starter-parent entende:
+             ele configura sozinho o compilador Java (source/target) com este valor.
+             Fixado em 1.8 porque é o JDK atualmente instalado nesta máquina (java -version
+             confirmou 1.8.0_451). Pode subir para 11 depois de instalar um JDK mais novo — Boot
+             2.3.x suporta 8 a 14 sem mudança de código. -->
+        <java.version>1.8</java.version>
+
+        <!-- Trem de release do Spring Cloud compatível com Spring Boot 2.3.x E que ainda inclui
+             o Zuul (ver explicação completa na tag <parent> acima). -->
+        <spring-cloud.version>Hoxton.SR12</spring-cloud.version>
+
+        <!-- Força UTF-8 em todo lugar (leitura de fontes e geração de relatórios), evitando o
+             clássico problema de acentuação quebrada em builds rodados em máquinas com locale
+             diferente. Equivalente ao <Utf8Output>true</Utf8Output>/encoding implícito do .csproj
+             (o SDK do .NET já assume UTF-8 por padrão, então isso raramente precisa ser dito
+             explicitamente em C#). -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Versão do MapStruct usada pelos módulos que fizerem mapeamento DTO<->Entity
+             (processo-service, a partir da Fase 3). Centralizada aqui desde já. -->
+        <mapstruct.version>1.3.1.Final</mapstruct.version>
+    </properties>
+
+    <!--
+        =======================================================================================
+        <dependencyManagement> — "CATÁLOGO DE VERSÕES", SEM BAIXAR NADA AINDA
+        =======================================================================================
+        Este é o bloco mais importante para entender a mentalidade Maven vs NuGet.
+
+        <dependencyManagement> NÃO adiciona nenhuma dependência ao classpath dos módulos — ele
+        apenas diz "SE algum módulo filho declarar esta dependência (em <dependencies>, sem
+        versão), USE esta versão aqui". É uma tabela de versões centralizada, não uma lista de
+        "instalar isso".
+
+        Paralelo .NET mais próximo: o <Directory.Packages.props> do "Central Package Management"
+        do NuGet (recurso mais recente do .NET), onde você também centraliza versões num arquivo
+        raiz e cada .csproj só referencia o pacote sem repetir a versão. Se você não usa CPM no
+        seu dia a dia .NET, pense nisso como a versão "obrigatória e nativa desde sempre" desse
+        recurso opcional do NuGet.
+
+        <type>pom</type> + <scope>import</scope>: "spring-cloud-dependencies" é ele mesmo um POM
+        de gerenciamento (não uma lib) que importa DEZENAS de versões de sub-libs do Spring Cloud
+        (Eureka, Zuul, Config, etc.) já compatíveis entre si. Importar esse BOM (Bill of Materials)
+        é o que permite os módulos filhos declararem "spring-cloud-starter-netflix-eureka-server"
+        sem dizer a versão — ela vem decidida pelo BOM do Hoxton.SR12.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!--
+        =======================================================================================
+        <build><pluginManagement> — versões de PLUGINS (não de dependências de código)
+        =======================================================================================
+        Plugins Maven executam TAREFAS de build (compilar, empacotar, rodar testes, gerar
+        cobertura) — não viram código que sua aplicação importa. Não tem paralelo 1:1 exato no
+        .csproj; o mais próximo são os <Target>/<Task> do MSBuild, mas aqui cada "tarefa" é um
+        artefato versionado e baixado do Maven Central como qualquer outra dependência.
+    -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+</project>

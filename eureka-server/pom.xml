@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ===========================================================================================
+    POM DO MÓDULO eureka-server
+    ===========================================================================================
+    Paralelo .NET: isto é o ".csproj" deste projeto específico dentro da "solution". Repare como
+    ele é bem mais enxuto que o POM pai — a maior parte das decisões (versão do Boot, versão do
+    Spring Cloud, encoding, versão do Java) já foi herdada. Aqui só declaramos: quem é o pai,
+    quem sou eu, e do que EU especificamente preciso.
+    ===========================================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- <parent> aqui aponta para o POM AGGREGATOR do projeto (sgp-processos/pom.xml), não para
+         o spring-boot-starter-parent diretamente — este módulo herda "em cascata": recebe do
+         pai imediato tudo o que o pai recebeu do spring-boot-starter-parent. -->
+    <parent>
+        <groupId>br.jus.trt4</groupId>
+        <artifactId>sgp-processos</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <!-- Não repetimos <groupId>/<version> — são herdados do parent. Só o artifactId é novo:
+         ele é o "nome do pacote" deste módulo específico, equivalente ao <AssemblyName>/nome do
+         .csproj de um projeto individual dentro da solution .NET. -->
+    <artifactId>eureka-server</artifactId>
+    <name>eureka-server</name>
+    <description>
+        Servidor de Service Discovery (Netflix Eureka). Nenhum outro serviço fala com ele
+        diretamente pelo cliente final — ele é infraestrutura interna da plataforma: os demais
+        microsserviços se REGISTRAM aqui ao subir, e o api-gateway CONSULTA aqui para saber o
+        endereço atual do processo-service.
+    </description>
+
+    <!--
+        =======================================================================================
+        <dependencies> — SEM <version> EM NENHUMA DELAS
+        =======================================================================================
+        Repare: nenhuma dependência abaixo tem tag <version>. Isso não é omissão — é o resultado
+        prático do <dependencyManagement> do POM pai (que importou o BOM spring-cloud-dependencies
+        Hoxton.SR12) + do spring-boot-starter-parent. O Maven resolve a versão certa sozinho.
+
+        Paralelo .NET: se você usa Central Package Management no NuGet, é exatamente essa
+        sensação — <PackageReference Include="X" /> sem versão no .csproj, porque a versão mora
+        no Directory.Packages.props raiz. Se você NÃO usa CPM, é a diferença mais estranha vindo
+        do .NET: no dia a dia .csproj comum, esquecer a versão dá erro; aqui, colocar a versão
+        manualmente é que seria o "cheiro estranho" (você estaria assumindo o risco de conflitar
+        com o que o BOM já validou).
+    -->
+    <dependencies>
+        <!--
+            spring-cloud-starter-netflix-eureka-server: o "starter" que traz TUDO que é preciso
+            para este processo virar um servidor Eureka: a lib netflix-eureka-server em si, mais
+            auto-configuração do Spring Boot que liga tudo automaticamente ao ver a annotation
+            @EnableEurekaServer (ver EurekaServerApplication.java).
+
+            "Starter" é um padrão do Spring Boot sem equivalente literal no NuGet: é um pacote
+            "agregador" que não tem código próprio relevante, só existe para puxar um conjunto de
+            dependências transitivas + acionar auto-configuração. O mais próximo no .NET seria um
+            meta-pacote que só tem <PackageReference> para outros pacotes — mas no Spring o starter
+            também aciona comportamento automático (ver docs/05 sobre auto-configuração).
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-actuator: expõe endpoints de operação/observabilidade prontos
+            (/actuator/health, /actuator/info, /actuator/metrics), sem escrever um controller
+            sequer. Equivalente .NET: parecido com os "Health Checks" nativos do ASP.NET Core
+            (Microsoft.Extensions.Diagnostics.HealthChecks) + os endpoints de métricas que você
+            normalmente monta manualmente ou via lib de terceiro — aqui vem pronto no starter.
+            Vamos usar /actuator/health mais para frente para o api-gateway e o Docker Compose
+            saberem se o Eureka já subiu.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-test: traz JUnit 5, Mockito, AssertJ e o suporte a
+            @SpringBootTest, todos numa tacada só. Equivalente .NET: um combo de
+            Microsoft.NET.Test.Sdk + xunit + Moq + FluentAssertions, só que empacotado como um
+            único starter em vez de você escolher pacote por pacote.
+            <scope>test</scope> = só entra no classpath durante compilação/execução de testes,
+            nunca vai para o JAR final — equivalente a um <PackageReference> com
+            "PrivateAssets=all" combinado com um ItemGroup condicional só para o contexto de teste.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!--
+        =======================================================================================
+        <build> — como este módulo específico é EMPACOTADO
+        =======================================================================================
+        spring-boot-maven-plugin é o que transforma "um monte de .class + dependências" em um
+        único JAR executável ("fat/uber JAR", com o Tomcat embutido dentro dele). Sem este
+        plugin, "mvn package" geraria um JAR fino (só o SEU código), que não roda sozinho com
+        "java -jar" porque faltariam as dependências dentro dele.
+
+        Paralelo .NET: mais próximo do "dotnet publish -p:PublishSingleFile=true" (empacotar tudo,
+        incluindo dependências, em um único executável autocontido) do que do "dotnet build"
+        comum — a diferença é que aqui isso é o comportamento PADRÃO de qualquer app Spring Boot,
+        não uma opção extra que você liga.
+    -->
+    <build>
+        <finalName>eureka-server</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

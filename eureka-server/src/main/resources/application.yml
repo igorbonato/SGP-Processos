@@ -1,0 +1,68 @@
+# =================================================================================================
+# application.yml — configuração do eureka-server
+# =================================================================================================
+# Paralelo .NET: este arquivo acumula os papéis do "appsettings.json" (configuração chave-valor
+# lida em runtime) — não existe um "appsettings.Development.json" separado ainda porque este
+# módulo não tem diferença de comportamento entre ambientes por enquanto (isso aparece via
+# "application-dev.yml"/"application-prod.yml" no processo-service, Fase 2+, usando Spring
+# Profiles — ver docs/04, seção Configuração e Build).
+#
+# YAML vs JSON: Spring Boot aceita application.properties (chave=valor, plano) OU application.yml
+# (hierárquico, como aqui). Preferimos YAML porque fica mais legível para configs aninhadas como
+# "eureka.client.service-url.defaultZone" — o equivalente ao appsettings.json faria o mesmo com
+# objetos aninhados em JSON.
+# =================================================================================================
+
+server:
+  # Porta HTTP deste processo. 8761 não é acaso: é a porta PADRÃO historicamente usada por
+  # servidores Eureka em toda a documentação/exemplos do ecossistema Netflix — mantemos a
+  # convenção para qualquer pessoa que já tenha visto um exemplo de Eureka reconhecer de cara.
+  # Paralelo .NET: equivalente ao "applicationUrl" do launchSettings.json ou ao
+  # `builder.WebHost.UseUrls(...)`.
+  port: 8761
+
+spring:
+  application:
+    # Este nome é como este processo se anuncia para SI MESMO nos logs e métricas — não confundir
+    # com o registro no Eureka (este processo É o Eureka, não se registra nele, ver abaixo).
+    name: eureka-server
+
+eureka:
+  client:
+    # ------------------------------------------------------------------------------------------
+    # register-with-eureka: false
+    # ------------------------------------------------------------------------------------------
+    # Todo processo com o starter do Eureka no classpath IMPORTA o papel de "cliente" (que tenta
+    # se registrar em algum servidor Eureka), mesmo quando esse processo É o próprio servidor.
+    # Sem esta linha, o servidor tentaria se auto-registrar como se fosse "mais um cliente" do
+    # Eureka (ele mesmo) — o que só faz sentido em topologias de ALTA DISPONIBILIDADE com múltiplos
+    # nós Eureka em "peer awareness" (cada nó Eureka se registra nos outros para replicar o
+    # catálogo). Como este projeto de estudo roda um único nó Eureka, desligamos isso.
+    register-with-eureka: false
+    # ------------------------------------------------------------------------------------------
+    # fetch-registry: false
+    # ------------------------------------------------------------------------------------------
+    # Pelo mesmo motivo acima: um cliente Eureka normalmente BAIXA (fetch) a lista de serviços
+    # registrados para cachear localmente (é assim que o api-gateway vai saber onde está o
+    # processo-service sem perguntar ao Eureka a cada requisição). O próprio servidor não precisa
+    # baixar essa lista dele mesmo.
+    fetch-registry: false
+    service-url:
+      # URL que os CLIENTES (api-gateway, processo-service, nas próximas fases) vão usar para
+      # falar com este servidor. Em um cenário de múltiplos nós Eureka, cada nó listaria os
+      # outros nós aqui para replicação — não é o nosso caso.
+      # Paralelo .NET: equivalente a uma entrada de "service registry endpoint" que você passaria
+      # na configuração de um client Steeltoe/Consul.
+      defaultZone: http://localhost:8761/eureka/
+
+  server:
+    # ------------------------------------------------------------------------------------------
+    # enable-self-preservation: false
+    # ------------------------------------------------------------------------------------------
+    # "Self preservation" é um mecanismo do Eureka que, em produção, evita remover instâncias do
+    # catálogo só porque elas pararam de mandar heartbeat momentaneamente (protege contra falsos
+    # positivos de rede instável). Em DESENVOLVIMENTO isso atrapalha: você derruba o
+    # processo-service, e o Eureka insiste em mostrá-lo como disponível por minutos. Desligamos
+    # aqui para o dashboard refletir a realidade rápido durante os estudos; em produção este
+    # comportamento voltaria a ser `true` (o padrão).
+    enable-self-preservation: false
