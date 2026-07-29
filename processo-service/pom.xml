@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.jus.trt4</groupId>
+        <artifactId>sgp-processos</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>processo-service</artifactId>
+    <name>processo-service</name>
+    <description>
+        Microsserviço de domínio: gestão de Processos Judiciais, Partes e Movimentações.
+        Concentra toda a regra de negócio, persistência JPA/Hibernate, REST, segurança e testes.
+    </description>
+
+    <!--
+        ===========================================================================================
+        packaging = war (não "jar")
+        ===========================================================================================
+        Decisão de arquitetura registrada em docs/02-estrutura-pastas.md: este é o único módulo
+        empacotado como WAR, propositalmente, para você exercitar o modelo de deploy tradicional
+        Java EE/Jakarta EE — publicar o artefato em um servidor de aplicação JÁ RODANDO (Tomcat,
+        JBoss, WildFly), em vez do modelo "self-contained" que o Spring Boot usa por padrão (JAR
+        com servidor embutido, mais parecido com o Kestrel do ASP.NET Core).
+
+        Sem paralelo direto no .NET moderno: o mais próximo seria publicar múltiplos App Pools
+        dentro de um único IIS já provisionado — várias aplicações compartilhando o mesmo processo
+        "servidor", em vez de cada uma subir seu próprio host self-contained.
+
+        Ver a configuração completa da <build> mais abaixo (spring-boot-starter-tomcat com escopo
+        "provided") e docs/09-notas-para-prova.md para o porquê disso importar tanto.
+    -->
+    <packaging>war</packaging>
+
+    <!--
+        =======================================================================================
+        <dependencies>
+        =======================================================================================
+        Cada dependência abaixo comentada com o "porquê" e o paralelo .NET/NuGet mais próximo.
+    -->
+    <dependencies>
+
+        <!--
+            spring-boot-starter-data-jpa: o starter mais denso deste módulo. Traz, em uma
+            tacada só:
+              - Hibernate (implementação de JPA, ver docs/05) como provider padrão
+              - JPA em si (a especificação javax.persistence — Jakarta EE 8, namespace javax.*)
+              - Spring Data JPA (a camada de conveniência que gera os Repository em runtime)
+              - HikariCP (pool de conexões JDBC padrão do Spring Boot desde a versão 2)
+
+            Paralelo .NET: equivalente a instalar de uma vez
+            Microsoft.EntityFrameworkCore + Microsoft.EntityFrameworkCore.Relational +
+            um provider (Npgsql/SqlServer) — só que aqui vem tudo embutido em UM pacote,
+            porque no mundo Spring "JPA" já pressupõe "preciso de um provider e de um pool
+            de conexão para isso funcionar de verdade".
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-web: traz Spring MVC + o Jackson (serialização JSON) + (por
+            padrão) o Tomcat embutido como servlet container. Ainda não temos nenhum
+            @RestController (chega na Fase 3), mas precisamos dele já agora para o módulo ser
+            uma aplicação web de verdade — inclusive para o H2 Console (abaixo) funcionar via
+            HTTP. Paralelo .NET: Microsoft.AspNetCore.App (o "meta-pacote" framework, hoje
+            implícito no SDK Web).
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            =====================================================================================
+            spring-boot-starter-tomcat com <scope>provided</scope> — O TRUQUE DO PACKAGING WAR
+            =====================================================================================
+            spring-boot-starter-web (acima) já traz o spring-boot-starter-tomcat TRANSITIVAMENTE
+            (com escopo normal, "compile"), porque por padrão o Spring Boot quer embutir um
+            Tomcat dentro do seu JAR. Ao redeclarar a MESMA dependência aqui, explicitamente, com
+            <scope>provided</scope>, nós SOBRESCREVEMOS o escopo herdado.
+
+            "provided" significa: "esta dependência é necessária para COMPILAR e para RODAR
+            localmente (mvn spring-boot:run), mas quem vai FORNECER essa classe em produção é o
+            ambiente de destino — não empacote-a dentro do artefato final". No nosso caso, "o
+            ambiente" é o Tomcat/JBoss/WildFly externo, que já tem sua PRÓPRIA implementação da
+            especificação Servlet rodando — se empacotássemos o Tomcat embutido DENTRO do WAR
+            também, teríamos duas implementações de Servlet disputando o mesmo processo,
+            causando conflito de classes.
+
+            Paralelo .NET: não existe escopo "provided" no `.csproj`/NuGet — o mais próximo
+            conceitualmente é uma referência marcada como "Reference" (não copiada para o output)
+            porque a DLL já vai estar disponível no GAC/runtime de destino — cenário raro hoje
+            em dia no .NET, mas comum nos tempos de .NET Framework clássico hospedado em IIS.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--
+            spring-boot-starter-actuator: mesma finalidade do eureka-server (health check,
+            métricas) — útil desde já para conferirmos rapidamente que o módulo subiu
+            corretamente em http://localhost:8081/actuator/health.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            flyway-core: ferramenta de versionamento de schema de banco (migrations).
+            Roda AUTOMATICAMENTE no startup da aplicação (auto-configurado pelo Spring Boot só
+            por estar no classpath), aplicando os scripts SQL numerados em
+            src/main/resources/db/migration/ que ainda não foram aplicados neste banco.
+
+            Paralelo .NET: EF Core Migrations (`dotnet ef migrations add` + `dotnet ef database
+            update`) — a diferença é que o Flyway trabalha com SQL puro versionado por você
+            mesmo (V1__descricao.sql, V2__descricao.sql...), não com migrations geradas a partir
+            de mudanças no modelo de classes. É uma filosofia "SQL-first" versus a filosofia
+            "code-first" que o EF Core populariza — ver docs/04.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!--
+            H2: banco relacional 100% em memória/arquivo, escrito em Java puro — usado aqui como
+            banco de DESENVOLVIMENTO (perfil "dev", ver application-dev.yml) e, futuramente
+            (Fase 7), como banco dos testes de integração. <scope>runtime</scope> porque nosso
+            código Java nunca importa uma classe do H2 diretamente — ele só precisa ESTAR no
+            classpath para o driver JDBC ser encontrado em tempo de execução.
+
+            Paralelo .NET: o papel mais parecido é o provider "InMemory" do EF Core
+            (Microsoft.EntityFrameworkCore.InMemory) para testes — só que o H2, diferente do
+            InMemory do EF Core, é um banco relacional DE VERDADE (entende SQL, índices,
+            constraints), então também serve para rodar a aplicação localmente com dados reais
+            de mentira, não só para testes automatizados.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!--
+        =======================================================================================
+        <build>
+        =======================================================================================
+        Mesmo plugin do eureka-server (spring-boot-maven-plugin), mas aqui ele empacota um WAR
+        executável em vez de um JAR — ele detecta sozinho o <packaging>war</packaging> declarado
+        acima. O artefato gerado (`processo-service.war`) funciona nos DOIS mundos:
+          - `java -jar processo-service.war` roda standalone (o Tomcat embutido, mesmo estando
+            "provided" no classpath de build, ainda é empacotado numa pasta especial dentro do
+            WAR pelo plugin, só para esse cenário de execução direta);
+          - copiar o mesmo arquivo para a pasta `webapps/` de um Tomcat/JBoss/WildFly externo
+            também funciona, porque o WAR segue o formato padrão da especificação Servlet.
+    -->
+    <build>
+        <finalName>processo-service</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

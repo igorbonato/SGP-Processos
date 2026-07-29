@@ -97,12 +97,12 @@
         dentro dela. Rodar "mvn install" nesta pasta raiz compila TODOS os módulos listados, na
         ordem correta de dependência (o Maven calcula o grafo sozinho).
 
-        Só declaramos "eureka-server" por enquanto (Fase 1). "api-gateway" e "processo-service"
-        entram nas Fases 6 e 2-5 respectivamente — declarar um módulo cuja pasta não existe ainda
-        quebra o build, então a lista cresce fase a fase.
+        "processo-service" entrou na Fase 2. "api-gateway" ainda falta (Fase 6) — declarar um
+        módulo cuja pasta não existe ainda quebra o build, então a lista cresce fase a fase.
     -->
     <modules>
         <module>eureka-server</module>
+        <module>processo-service</module>
     </modules>
 
     <!--

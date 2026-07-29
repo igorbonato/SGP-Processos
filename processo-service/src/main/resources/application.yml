@@ -1,0 +1,68 @@
+# =================================================================================================
+# application.yml — configuração COMUM a todos os perfis (dev, prod, teste...).
+# Configuração específica de cada ambiente fica em application-{profile}.yml e SOBRESCREVE o que
+# estiver aqui — mesmo racional do appsettings.json + appsettings.{Environment}.json do .NET.
+# =================================================================================================
+
+server:
+  # 8081 (diferente da 8761 do eureka-server) — cada microsserviço precisa de porta própria
+  # quando rodados na mesma máquina para estudo. Em produção, atrás do api-gateway, o cliente
+  # final nunca vê esta porta diretamente.
+  port: 8081
+
+spring:
+  application:
+    name: processo-service
+
+  # ---------------------------------------------------------------------------------------------
+  # spring.profiles.active: dev — decide QUAL application-{profile}.yml é carregado por cima
+  # deste arquivo. Sem Maven/variável de ambiente configurando algo diferente, "dev" é o padrão
+  # ao rodar localmente. Paralelo .NET: equivalente a deixar ASPNETCORE_ENVIRONMENT=Development
+  # como padrão do launchSettings.json.
+  # ---------------------------------------------------------------------------------------------
+  profiles:
+    active: dev
+
+  flyway:
+    enabled: true
+    # Permite ao Flyway assumir um schema PRÉ-EXISTENTE (vazio) como "baseline" em vez de exigir
+    # que o banco esteja absolutamente virgem. Útil em dev quando o H2 já subiu uma vez sem
+    # Flyway configurado ainda — não afeta o cenário normal (banco novo a cada subida do H2 em
+    # memória), mas evita uma dor de cabeça comum ao configurar Flyway pela primeira vez.
+    baseline-on-migrate: true
+
+  jpa:
+    hibernate:
+      # ---------------------------------------------------------------------------------------
+      # ddl-auto: validate — o Hibernate NÃO cria/altera tabela nenhuma sozinho. Ele apenas
+      # CONFERE, ao subir, se o schema atual do banco (já criado pelo Flyway) bate com o que as
+      # entidades @Entity esperam — e falha rápido (na inicialização) se houver divergência, em
+      # vez de deixar um erro estourar silenciosamente na primeira query.
+      #
+      # "create"/"update" (deixar o PRÓPRIO Hibernate gerar/alterar tabelas a partir das
+      # entidades) até existe e é tentador para prototipar rápido, mas é considerado
+      # ANTI-PADRÃO em qualquer ambiente que não seja um teste 100% descartável — ver docs/04.
+      # "validate" é o meio-termo seguro: schema é sempre responsabilidade do Flyway (versionado,
+      # revisável em code review), e o Hibernate só age como uma rede de segurança.
+      # ---------------------------------------------------------------------------------------
+      ddl-auto: validate
+    # -----------------------------------------------------------------------------------------
+    # open-in-view: false — DESLIGA um comportamento que vem LIGADO por padrão no Spring Boot
+    # ("Open Session/EntityManager In View"): por padrão, a sessão do Hibernate fica aberta
+    # durante TODA a requisição HTTP (não só durante o método do service), permitindo que
+    # relacionamentos @OneToMany/@ManyToOne LAZY sejam acessados até mais tarde, na hora de
+    # serializar a resposta JSON — mesmo depois do @Transactional do service já ter terminado.
+    #
+    # É considerado ANTI-PADRÃO porque esconde o problema em vez de resolvê-lo: você só descobre
+    # em produção, sob carga, que está fazendo 1 query a mais por requisição (o clássico
+    # problema "N+1") só porque o controller "sem querer" tocou em uma coleção lazy. Desligando
+    # aqui, qualquer acesso lazy fora da transação do service estoura
+    # LazyInitializationException IMEDIATAMENTE, em desenvolvimento — you want isso, é melhor
+    # falhar cedo e explicitamente (e resolver com um mapper que já busca o necessário dentro do
+    # @Transactional do service, Fase 3) do que descobrir tarde.
+    #
+    # Sem equivalente no EF Core: como o EF Core não tem lazy loading automático por padrão
+    # (ver comentário em Parte.java sobre @ManyToOne/FetchType), esse problema específico
+    # simplesmente não existe do mesmo jeito no mundo .NET.
+    # -----------------------------------------------------------------------------------------
+    open-in-view: false

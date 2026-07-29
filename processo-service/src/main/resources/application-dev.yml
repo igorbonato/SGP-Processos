@@ -1,0 +1,35 @@
+# =================================================================================================
+# application-dev.yml — SOBRESCREVE application.yml quando spring.profiles.active=dev (default).
+# Equivalente ao appsettings.Development.json no .NET: só as diferenças em relação ao arquivo
+# "base" precisam estar aqui.
+# =================================================================================================
+
+spring:
+  datasource:
+    # H2 em memória: "sgp_processos" é só um nome lógico do banco dentro do processo H2 (não é um
+    # arquivo em disco). "DB_CLOSE_DELAY=-1" mantém o banco vivo enquanto a JVM estiver rodando,
+    # mesmo que a última conexão do pool feche momentaneamente — sem isso, o H2 apagaria todos os
+    # dados assim que a primeira conexão fosse devolvida ao pool, o que quebraria a aplicação
+    # quase imediatamente.
+    url: jdbc:h2:mem:sgp_processos;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      # -------------------------------------------------------------------------------------
+      # H2 Console: uma UI web embutida (tipo um mini SSMS/DBeaver rodando dentro da própria
+      # aplicação) para inspecionar o banco em memória enquanto ele existe. Só faz sentido em
+      # dev — jamais habilitar isso em application-prod.yml (Fase 8), seria expor acesso direto
+      # ao banco de produção sem autenticação própria.
+      # -------------------------------------------------------------------------------------
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    # Mostra no console o SQL que o Hibernate está de fato executando — inestimável enquanto
+    # você está aprendendo a mapear entidades, para conferir se o SQL gerado bate com o esperado.
+    # Desligado em prod (custo de I/O de log + verboso demais para operação real).
+    show-sql: true
