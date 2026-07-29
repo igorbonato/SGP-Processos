@@ -150,6 +150,34 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!--
+            spring-boot-starter-validation: traz o Bean Validation (especificação
+            jakarta.validation/javax.validation — Jakarta EE 8, ainda javax.* aqui, ver docs/05)
+            + Hibernate Validator como IMPLEMENTAÇÃO (biblioteca separada do Hibernate ORM, apesar
+            do nome parecido). É o que faz `@Valid` nos controllers (Fase 3) disparar as
+            anotações `@NotBlank`/`@NotNull`/`@Size` dos DTOs de request.
+
+            Paralelo .NET: equivalente às DataAnnotations (`[Required]`, `[MaxLength]`) + o model
+            binding automático do ASP.NET Core que já valida sozinho antes de entrar na action —
+            aqui esse "antes de entrar no método" é o papel do `@Valid` no parâmetro do controller.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            MapStruct: gera, em tempo de COMPILAÇÃO, a implementação das interfaces de
+            mapeamento Entity<->DTO declaradas em `mapper/` (ver docs/03). <scope> normal
+            (compile) porque as anotações `@Mapper`/`@Mapping` são usadas em código-fonte nosso,
+            não só em build.
+        -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -176,6 +204,42 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+                ===================================================================================
+                maven-compiler-plugin — registrando o MapStruct como ANNOTATION PROCESSOR
+                ===================================================================================
+                O jar "mapstruct" (declarado em <dependencies>) só tem as ANOTAÇÕES (@Mapper,
+                @Mapping) — quem efetivamente GERA o código da implementação é o jar separado
+                "mapstruct-processor", um "annotation processor": um plugin que roda DURANTE a
+                fase de compilação, lê as interfaces anotadas com @Mapper, e gera classes .java
+                novas (em target/generated-sources/annotations) ANTES do javac compilar tudo.
+
+                <annotationProcessorPaths> é onde declaramos processors, separado das
+                dependências normais de runtime — o processor em si nunca vai parar dentro do
+                classpath da aplicação, ele só existe durante o "mvn compile".
+
+                Paralelo .NET: o equivalente mais próximo são os SOURCE GENERATORS do C#
+                (`Microsoft.CodeAnalysis` incremental generators, ex.: os usados por
+                System.Text.Json ou pelo próprio compilador ao gerar código para records) — código
+                gerado em compile-time a partir de atributos/anotações, sem reflection em
+                runtime. É a mesma categoria de mecanismo, mas com um nome diferente em cada
+                ecossistema. AutoMapper, em contraste, faz tudo via REFLECTION em RUNTIME — não
+                tem nada comparável a este passo de build.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
         </plugins>
     </build>

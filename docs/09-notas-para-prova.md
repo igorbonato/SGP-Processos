@@ -84,6 +84,74 @@ relacionamentos `LAZY` até na hora de serializar a resposta.
 >
 > _Fonte: [`application.yml`](../processo-service/src/main/resources/application.yml), Fase 2._
 
+### MapStruct: por que o DTO de resposta precisa de construtor sem argumentos + setters?
+
+O MapStruct **existe** desde a versão 1.3 com suporte a "mapeamento por construtor" (para classes
+sem construtor padrão), mas isso não é incondicional — na prática, com `mapstruct 1.3.1.Final`
+(a versão fixada neste projeto), tentar usar um DTO só-com-construtor-de-todos-os-campos
+resultou em erro de compilação: `"does not have an accessible parameterless constructor"`. O
+MapStruct caiu para a estratégia PADRÃO dele (instanciar via construtor vazio, popular via
+setters), sem usar o construtor alternativo.
+
+> **Pegadinha/lição real:** comportamento de annotation processor (MapStruct, Lombok, etc.) é
+> sensível à versão exata da biblioteca — a forma confiável de saber "isso funciona" é
+> **compilar**, não confiar na documentação geral do recurso. A estratégia universalmente segura
+> (funciona em qualquer versão) é DTO como JavaBean clássico: construtor sem argumentos + setters.
+> Sem paralelo direto no AutoMapper, que sempre usa reflection em runtime e por isso nunca tem
+> essa dependência de "o que o compilador consegue enxergar".
+>
+> _Fonte: [`ParteResponseDTO.java`](../processo-service/src/main/java/br/jus/trt4/processo/dto/response/ParteResponseDTO.java), Fase 3 — corrigido depois de um `mvn compile` real falhar._
+
+### Como o MapStruct mapeia uma lista aninhada (ex.: `Processo.partes`) sem eu escrever o loop?
+
+Declarando `@Mapper(uses = ParteMapper.class)` no `ProcessoMapper` — o MapStruct vê que o campo
+`partes` é `List<Parte>` na entidade e `List<ParteResponseDTO>` no DTO, procura (nos mappers
+listados em `uses`) um método `Parte -> ParteResponseDTO`, acha o do `ParteMapper`, e GERA
+sozinho o loop que aplica esse método item a item — inclusive injetando o `ParteMapper` via
+`@Autowired` dentro do `ProcessoMapperImpl` gerado.
+
+> _Fonte: [`ProcessoMapperImpl.java`](../processo-service/target/generated-sources/annotations/br/jus/trt4/processo/mapper/ProcessoMapperImpl.java) (gerado), Fase 3._
+
+### Por que `processoRepository.save(processo)` não é chamado depois de `processo.arquivar()`?
+
+Dentro de uma transação (`@Transactional`), uma entidade carregada via `findById()` fica
+"managed" (gerenciada) pelo Hibernate — qualquer mudança de estado nela é detectada por **dirty
+checking** e vira `UPDATE` automaticamente no commit, sem precisar chamar `save()` de novo.
+
+> **Pegadinha:** isso é DIFERENTE do EF Core, onde você **ainda precisa** chamar
+> `SaveChanges()`/`SaveChangesAsync()` explicitamente mesmo com o Change Tracker já ciente da
+> mudança — o Hibernate faz esse "SaveChanges automático" no commit da transação, o EF Core não.
+>
+> _Fonte: [`ProcessoServiceImpl.java`](../processo-service/src/main/java/br/jus/trt4/processo/service/impl/ProcessoServiceImpl.java), Fase 3._
+
+### `repository.save(entity)` sempre atualiza os campos gerados (`id`) na variável original?
+
+**Não, nem sempre** — e isso derrubou um teste real deste projeto. O Spring Data decide, dentro de
+`save()`, entre `persist()` (entidade nova, sem id) e `merge()` (entidade já tem id — foi
+carregada via `findById`, por exemplo). Para `persist()`, a MESMA instância Java que você passou
+recebe o id gerado de volta (mutação in-place). Para `merge()`, a **especificação JPA diz
+explicitamente** que a chamada pode devolver uma instância diferente — e é NELA, não no objeto
+original, que os campos gerados de entidades recém-cascadeadas aparecem.
+
+> **Pegadinha (bug real encontrado testando este projeto):** ao adicionar uma `Movimentacao` a um
+> `Processo` já existente (`processoRepository.save(processo)` → é um `merge()`, pois o processo
+> já tem id) e depois mapear a variável local `movimentacao` (a mesma instância criada com `new`
+> antes do save) para o DTO de resposta, o `id` veio `null` — mesmo a linha já estando gravada
+> corretamente no banco. A correção é sempre usar o **retorno** de `save()`/`merge()` para
+> qualquer leitura pós-persistência. Note a assimetria: `ProcessoServiceImpl.criar()` nunca teve
+> esse problema, porque ali o `Processo` é **novo** (sem id) — `save()` vira `persist()`, que
+> atualiza a instância original em memória sem exigir usar o retorno.
+>
+> _Fonte: [`MovimentacaoServiceImpl.java`](../processo-service/src/main/java/br/jus/trt4/processo/service/impl/MovimentacaoServiceImpl.java), Fase 3 — corrigido depois de um teste HTTP real expor `id: null` na resposta._
+
+### HTTP 400 vs 422 — qual a diferença e quando usar cada um?
+
+400 (Bad Request): a requisição está malformada ou falhou uma validação de FORMATO (`@NotBlank`,
+`@Size` — Bean Validation). 422 (Unprocessable Entity): o JSON é válido e teria o formato certo,
+mas viola uma REGRA DE NEGÓCIO (ex.: adicionar movimentação em processo arquivado).
+
+> _Fonte: [`GlobalExceptionHandler.java`](../processo-service/src/main/java/br/jus/trt4/processo/exception/GlobalExceptionHandler.java), Fase 3._
+
 ---
 
 ## 5. Servidores de Aplicação
