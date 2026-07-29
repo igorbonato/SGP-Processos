@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -58,6 +59,18 @@ public class ProcessoController {
     @Operation(summary = "Cria um novo Processo Judicial com suas Partes")
     @ApiResponse(responseCode = "201", description = "Processo criado")
     @ApiResponse(responseCode = "400", description = "Payload inválido (Bean Validation)")
+    // ---------------------------------------------------------------------------------------
+    // @PreAuthorize — avaliado ANTES do corpo do método rodar (é um proxy AOP em volta da
+    // chamada): se a expressão SpEL "hasRole('ANALISTA')" for falsa para o usuário autenticado
+    // no SecurityContext (populado pelo JwtAuthenticationFilter), o método nem chega a executar
+    // — o Spring lança AccessDeniedException, tratada pelo JwtAccessDeniedHandler (403).
+    // "hasRole('ANALISTA')" checa a authority "ROLE_ANALISTA" — o prefixo "ROLE_" é adicionado
+    // automaticamente pelo Spring Security perante o que configuramos como ".roles("ANALISTA")"
+    // no SecurityConfig; por isso aqui NÃO se repete o prefixo.
+    // Paralelo .NET: [Authorize(Roles = "Analista")] — mesma ideia, checagem declarativa por
+    // cima do método/action, avaliada antes do corpo rodar.
+    // ---------------------------------------------------------------------------------------
+    @PreAuthorize("hasRole('ANALISTA')")
     @PostMapping
     // -----------------------------------------------------------------------------------------
     // @Valid — dispara o Bean Validation nas anotações do ProcessoRequestDTO (@NotBlank,
@@ -106,6 +119,7 @@ public class ProcessoController {
     @Operation(summary = "Arquiva um Processo (bloqueia novas movimentações)")
     @ApiResponse(responseCode = "200", description = "Processo arquivado")
     @ApiResponse(responseCode = "404", description = "Nenhum processo com este id")
+    @PreAuthorize("hasRole('ANALISTA')")
     @PatchMapping("/{id}/arquivar")
     // PATCH (não PUT/POST) por semântica REST: esta operação altera PARCIALMENTE o recurso (só o
     // status), não o substitui inteiro (seria PUT) nem cria um novo (seria POST).

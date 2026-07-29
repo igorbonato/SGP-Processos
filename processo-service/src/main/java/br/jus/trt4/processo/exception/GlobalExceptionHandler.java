@@ -21,6 +21,12 @@ import java.util.stream.Collectors;
 // middleware customizado registrado no pipeline) — a diferença é que lá você normalmente escreve
 // UM handler com um switch/if por tipo de exceção; aqui o Spring já roteia para o método certo
 // baseado no tipo declarado em @ExceptionHandler, sem você escrever o "if" de despacho.
+//
+// NÃO existe aqui um @ExceptionHandler para AuthenticationException (login errado) nem para
+// AccessDeniedException (@PreAuthorize barrando um usuário sem a role certa) — de propósito, não
+// por esquecimento. Ambas são interceptadas mais cedo, pelo ExceptionTranslationFilter do Spring
+// Security, que nunca deixa chegar até este mecanismo. Ver o javadoc completo de
+// br.jus.trt4.processo.security.JwtAuthEntryPoint (401) e JwtAccessDeniedHandler (403).
 // -------------------------------------------------------------------------------------------
 @RestControllerAdvice
 public class GlobalExceptionHandler {

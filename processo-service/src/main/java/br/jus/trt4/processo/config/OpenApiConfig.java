@@ -1,9 +1,12 @@
 package br.jus.trt4.processo.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -41,6 +44,12 @@ public class OpenApiConfig {
     // -----------------------------------------------------------------------------------------
     @Bean
     public OpenAPI processoServiceOpenAPI() {
+        // "bearerAuth" é só um NOME/apelido interno para este esquema de segurança dentro do
+        // documento OpenAPI — usado para ligar o SecurityRequirement abaixo ao SecurityScheme
+        // declarado em Components. Não tem relação com nenhum texto que trafega de verdade no
+        // header HTTP (esse é sempre "Authorization: Bearer <token>", fixo pela spec).
+        final String securitySchemeName = "bearerAuth";
+
         return new OpenAPI()
                 .info(new Info()
                         .title("SGP-Processos — processo-service")
@@ -48,6 +57,23 @@ public class OpenApiConfig {
                                 + "estudo para o edital do TRT 4ª Região (ver conteudo_programatico.md).")
                         .version("v1")
                         .contact(new Contact().name("Igor Bonato"))
-                        .license(new License().name("Uso interno / estudo")));
+                        .license(new License().name("Uso interno / estudo")))
+                // -------------------------------------------------------------------------------
+                // addSecurityItem + Components/SecurityScheme (Fase 5): sem isto, o Swagger UI não
+                // teria como saber que os endpoints protegidos esperam um "Authorization: Bearer
+                // <token>" — o botão "Authorize" no canto superior direito da tela só aparece por
+                // causa deste bloco. Isto é documentação PURA: não aplica segurança nenhuma por si
+                // só (quem faz isso de verdade é o SecurityConfig, Fase 5) — só descreve, para
+                // quem está lendo/testando pela UI, que esquema de autenticação usar.
+                // Paralelo .NET: o mesmo papel de `options.AddSecurityDefinition(...)` +
+                // `options.AddSecurityRequirement(...)` na configuração do Swashbuckle.
+                // -------------------------------------------------------------------------------
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
+                .components(new Components()
+                        .addSecuritySchemes(securitySchemeName, new SecurityScheme()
+                                .name(securitySchemeName)
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")));
     }
 }

@@ -197,6 +197,48 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!--
+            spring-boot-starter-security: traz o Spring Security inteiro (filtros, contexto de
+            autenticação, @PreAuthorize, BCryptPasswordEncoder). Só de estar no classpath, ele já
+            protege TODOS os endpoints por padrão (com um usuário gerado aleatoriamente logado no
+            console) — por isso o SecurityConfig (Fase 5) é obrigatório assim que este starter
+            entra, não é opcional "se você quiser customizar".
+            Paralelo .NET: Microsoft.AspNetCore.Authentication + Microsoft.AspNetCore.Authorization
+            (que no ASP.NET Core já vêm no framework, não como pacote NuGet separado).
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
+            JJWT — três artefatos, cada um com um papel (ver comentário completo no pom.xml raiz,
+            propriedade jjwt.version, sobre o padrão spec/impl se repetindo pela 4ª vez):
+              - jjwt-api: as classes que o NOSSO código importa e compila contra (Jwts, Claims).
+              - jjwt-impl: a implementação de fato (algoritmos de assinatura, parsing) — nunca
+                importada diretamente, só precisa ESTAR no classpath em runtime.
+              - jjwt-jackson: serializa/desserializa os claims do token como JSON usando Jackson
+                (a mesma lib que o Spring MVC já usa para os DTOs REST) — poderia ser trocado por
+                "jjwt-gson" sem mudar nosso código, só a dependência.
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

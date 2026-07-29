@@ -83,3 +83,28 @@ springdoc:
     # Tela HTML interativa. Paralelo .NET: a página que o Swashbuckle.AspNetCore.SwaggerUI serve
     # em "/swagger" por padrão — mesmo papel, biblioteca diferente.
     path: /swagger-ui.html
+
+# ---------------------------------------------------------------------------------------------
+# jwt — configuração do JwtTokenProvider (Fase 5).
+#
+# "${JWT_SECRET:...}" é a sintaxe de PLACEHOLDER do Spring (não é YAML puro): em runtime, o
+# Spring primeiro procura uma variável de ambiente/propriedade de sistema chamada "JWT_SECRET" —
+# se existir, usa ela; senão, cai no valor depois dos dois-pontos. Isso permite rodar
+# localmente SEM configurar nada (usa o valor de estudo abaixo), e em qualquer ambiente real
+# sobrescrever só definindo a variável de ambiente JWT_SECRET, sem tocar neste arquivo nem
+# recompilar nada.
+#
+# IMPORTANTE (segurança real, não só de estudo): o valor abaixo está COMMITADO NO GIT PÚBLICO
+# deste repositório — está aqui só para o projeto rodar localmente sem configuração extra. Em
+# QUALQUER ambiente que não seja "sua própria máquina, estudando", esse segredo precisa vir de
+# uma variável de ambiente/vault nunca versionado — um segredo de assinatura de JWT vazado
+# publicamente permite a qualquer pessoa forjar tokens válidos.
+# Paralelo .NET: exatamente o mesmo cuidado que se tem com a chave em
+# `builder.Configuration["Jwt:Key"]` vinda de uma User Secret/Key Vault, nunca do
+# appsettings.json commitado.
+# ---------------------------------------------------------------------------------------------
+jwt:
+  secret: ${JWT_SECRET:sgp-processos-estudo-trt4-chave-apenas-para-uso-local-nao-usar-em-producao}
+  # 1 hora, em milissegundos. Paralelo .NET: o "ExpireHours"/"ExpireMinutes" de um JwtBearerOptions
+  # customizado.
+  expiration-ms: 3600000

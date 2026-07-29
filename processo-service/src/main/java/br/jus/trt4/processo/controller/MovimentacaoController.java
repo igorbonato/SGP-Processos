@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +37,7 @@ public class MovimentacaoController {
     @ApiResponse(responseCode = "201", description = "Movimentação registrada")
     @ApiResponse(responseCode = "404", description = "Processo não encontrado")
     @ApiResponse(responseCode = "422", description = "Processo arquivado — não aceita novas movimentações")
+    @PreAuthorize("hasRole('ANALISTA')")
     @PostMapping
     public ResponseEntity<MovimentacaoResponseDTO> adicionar(@PathVariable Long processoId,
                                                               @Valid @RequestBody MovimentacaoRequestDTO dto) {

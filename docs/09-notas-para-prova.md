@@ -37,6 +37,51 @@ quebra a auto-configuração silenciosamente ou nem resolve as dependências.
 >
 > _Fonte: `pom.xml` raiz (propriedade `springdoc.version`), Fase 4._
 
+### Onde tratar uma falha de autenticação/autorização: `@ExceptionHandler` ou outra coisa?
+
+**Outra coisa.** `AuthenticationException` (token ausente/inválido, credenciais erradas no login)
+e `AccessDeniedException` (`@PreAuthorize` barrando um usuário sem a role certa) são interceptadas
+pelo `ExceptionTranslationFilter` do Spring Security **antes** de qualquer `@ExceptionHandler` — a
+exceção nunca chega ao `@RestControllerAdvice`, mesmo quando lançada de dentro de um método de
+controller normal (como o `authenticationManager.authenticate(...)` do login). O ponto de
+configuração certo é um `AuthenticationEntryPoint` (401) e um `AccessDeniedHandler` (403),
+registrados via `.exceptionHandling()` no `SecurityConfig`.
+
+> **Testado de verdade, não só lido**: chamei `/auth/login` com senha errada e o **mesmo**
+> `JwtAuthEntryPoint` que trata "token ausente num endpoint protegido" respondeu — confirmando que
+> os dois cenários (login errado E token ausente) passam pelo mesmo mecanismo. Por isso a
+> mensagem de erro do `JwtAuthEntryPoint` é deliberadamente genérica ("credenciais ou token
+> inválidos"), não específica de um dos dois casos.
+>
+> _Fonte: [`JwtAuthEntryPoint.java`](../processo-service/src/main/java/br/jus/trt4/processo/security/JwtAuthEntryPoint.java) / [`JwtAccessDeniedHandler.java`](../processo-service/src/main/java/br/jus/trt4/processo/security/JwtAccessDeniedHandler.java), Fase 5._
+
+### 401 vs 403 — qual a diferença exata?
+
+**401 Unauthorized**: "eu não sei quem você é" (token ausente, inválido, expirado, ou credenciais
+erradas no login) — na prática, "**não autenticado**". **403 Forbidden**: "eu sei exatamente quem
+você é, mas você não tem permissão para isso" — "**autenticado, porém não autorizado**". Testado
+neste projeto: usuário `consulta` (sem `ROLE_ANALISTA`) chamando `POST /api/processos` recebe 403,
+não 401 — o token dele é válido, só falta a role.
+>
+> _Fonte: `ProcessoController.criar` (`@PreAuthorize("hasRole('ANALISTA')")`), Fase 5._
+
+### `hasRole('ANALISTA')` — por que não escrever `hasRole('ROLE_ANALISTA')`?
+
+O Spring Security adiciona o prefixo `ROLE_` **automaticamente** ao configurar
+`.roles("ANALISTA")` (ver `SecurityConfig`) e ao AVALIAR `hasRole(...)` — o prefixo existe só
+internamente, na authority de verdade (`ROLE_ANALISTA`); escrevê-lo nos dois lugares duplicaria o
+prefixo (`ROLE_ROLE_ANALISTA`) e a checagem falharia sempre. `hasAuthority(...)`, em contraste,
+compara o texto exato, sem adicionar prefixo nenhum — é a opção certa quando a permissão não é uma
+"role" no sentido tradicional (ex.: uma permissão granular tipo `"processos:arquivar"`).
+
+### Por que uma API com JWT desliga CSRF, mas um app com login por formulário/cookie não pode?
+
+Proteção CSRF existe para o cenário onde o **browser envia credenciais automaticamente** (cookie
+de sessão) em toda requisição, inclusive as forjadas por um site malicioso. Uma API stateless
+autenticada por JWT no header `Authorization` não tem esse vetor — o token só vai junto se o
+código cliente explicitamente colocar ele lá, o que um site atacante não consegue forçar o
+browser a fazer. Por isso `sessionCreationPolicy(STATELESS)` + `csrf().disable()` andam juntos.
+
 ---
 
 ## 2. Frameworks Java
