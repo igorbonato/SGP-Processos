@@ -21,6 +21,7 @@ Leia os arquivos em `docs/` **nesta ordem**:
 6. [`06-seguranca-e-observabilidade.md`](docs/06-seguranca-e-observabilidade.md) — fluxo JWT e logging estruturado para ELK.
 7. [`07-testes-e-qualidade.md`](docs/07-testes-e-qualidade.md) — estratégia de testes, JUnit/Mockito, cobertura (JaCoCo).
 8. [`08-roadmap-implementacao.md`](docs/08-roadmap-implementacao.md) — ordem em que o código será escrito no Passo 2, por fases aprováveis.
+9. [`09-notas-para-prova.md`](docs/09-notas-para-prova.md) — cheat sheet cumulativa de nuances com valor de prova (concurso), atualizada a cada fase.
 
 ## Regra de ouro do Passo 2 (código)
 

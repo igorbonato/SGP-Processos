@@ -24,6 +24,7 @@ A partir da Fase 0, todo arquivo novo segue:
 - Toda annotation não-trivial comentada com "o que faz por baixo dos panos" + equivalente C#.
 - Todo `pom.xml` comentado dependência por dependência, com o paralelo `.csproj`/NuGet.
 - Onde houver ambiguidade spec-vs-implementação (JPA/Hibernate, Servlet/Tomcat), o comentário explicita qual é qual.
+- Sempre que uma nuance com valor de prova aparecer durante a implementação/explicação do código de uma fase (uma pegadinha, uma decisão de versão, uma diferença de comportamento .NET-vs-Java), ela vira uma entrada nova em [`09-notas-para-prova.md`](09-notas-para-prova.md), na seção correspondente ao tópico do edital. É um arquivo vivo, não escrito uma vez só na Fase 0.
 
 ## Próximo passo
 
