@@ -86,6 +86,42 @@ browser a fazer. Por isso `sessionCreationPolicy(STATELESS)` + `csrf().disable()
 
 ## 2. Frameworks Java
 
+### Zuul apaga o header `Authorization` ao encaminhar a requisição — por quê?
+
+Por padrão, o Zuul remove uma lista de headers "sensíveis" (`Cookie`, `Set-Cookie`, `Authorization`)
+antes de repassar a requisição ao serviço de destino — pensado originalmente para não vazar
+cookies de sessão entre domínios diferentes atrás do mesmo gateway. Isso quebra qualquer API
+downstream que também exija esse header (como o `processo-service`, com seu próprio
+`SecurityConfig`). Correção: `zuul.sensitiveHeaders: ''` (string vazia) no `application.yml` do
+gateway — desliga a lista de remoção.
+
+> **Testado de verdade**: sem essa linha, uma requisição autenticada passava na validação do
+> `JwtValidationZuulFilter` (gateway) e MESMO ASSIM voltava 401 do `processo-service` — porque o
+> token nunca chegava lá. É provavelmente A pegadinha mais comum de quem configura Zuul + JWT pela
+> primeira vez.
+>
+> _Fonte: [`api-gateway/application.yml`](../api-gateway/src/main/resources/application.yml), Fase 6._
+
+### Zuul (legado) engole o corpo de um POST/PUT — como corrigir?
+
+Sintoma real encontrado: `POST` através do gateway retornava 504/500/erro genérico, com o log do
+gateway mostrando `"Content-length different from byte array length! cl=357, array=0"` — o Zuul
+declarava um Content-Length para o serviço de destino mas não conseguia de fato ler/reenviar os
+bytes do corpo original, e o `processo-service` ficava esperando bytes que nunca chegavam
+(`ClientAbortException: EOFException`). Causa: o cliente HTTP padrão que o Ribbon usa para fazer a
+chamada de fato (`RestClient`, legado) tem um bug antigo e conhecido nesse cenário.
+
+> **Correção testada e confirmada**: forçar o Apache HttpClient em vez do `RestClient` legado —
+> `ribbon.httpclient.enabled: true` + `ribbon.restclient.enabled: false`. Depois disso, POST com
+> corpo (inclusive com acentuação UTF-8) passou a funcionar perfeitamente através do gateway.
+> Este é um sintoma amplamente documentado do Zuul 1 (a versão "clássica", em manutenção) — é
+> parte do motivo pelo qual o Spring recomenda o Spring Cloud Gateway (não-bloqueante, WebFlux)
+> como sucessor. O edital pede Zuul especificamente (ver docs/09, seção sobre a decisão de
+> versão), então vale saber que esse tipo de limitação existe e como contorná-la, não só que o
+> substituto moderno existe.
+>
+> _Fonte: [`api-gateway/application.yml`](../api-gateway/src/main/resources/application.yml), Fase 6._
+
 ### Jakarta EE 8 usa o namespace `javax.*` ou `jakarta.*`?
 
 **`javax.*`.** O rename de pacote para `jakarta.*` só aconteceu a partir do **Jakarta EE 9** (fim de

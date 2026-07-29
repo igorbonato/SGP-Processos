@@ -115,6 +115,22 @@
         </dependency>
 
         <!--
+            spring-cloud-starter-netflix-eureka-client (Fase 6): faz o processo-service se
+            REGISTRAR no eureka-server ao subir — sem isso, o api-gateway nunca encontraria uma
+            instância para "serviceId: processo-service" (ver api-gateway/application.yml), por
+            mais que o resto do roteamento estivesse certo. Só entrou agora porque só passou a
+            fazer sentido a partir do momento em que existe um API Gateway consultando o Eureka;
+            nas Fases 2-5, rodar o processo-service sozinho (sem gateway) não precisava disso.
+            Note que este módulo NÃO importa o BOM spring-cloud-dependencies diretamente — ele
+            herda essa versão através do POM PAI (que já importa o BOM Hoxton.SR12 no
+            <dependencyManagement>), por isso não precisamos repetir <version> aqui.
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!--
             flyway-core: ferramenta de versionamento de schema de banco (migrations).
             Roda AUTOMATICAMENTE no startup da aplicação (auto-configurado pelo Spring Boot só
             por estar no classpath), aplicando os scripts SQL numerados em

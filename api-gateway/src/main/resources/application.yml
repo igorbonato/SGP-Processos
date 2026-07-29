@@ -1,0 +1,78 @@
+# =================================================================================================
+# application.yml — api-gateway
+# =================================================================================================
+
+server:
+  # 8080 — a "porta da frente" da plataforma. É a ÚNICA porta que um cliente externo deveria
+  # precisar conhecer; 8761 (eureka-server) e 8081 (processo-service) são infraestrutura interna.
+  port: 8080
+
+spring:
+  application:
+    # Este nome também é o que aparece no dashboard do Eureka para ESTE processo (o gateway
+    # também se registra como client, ver "eureka.client" abaixo) — não confundir com o
+    # "serviceId" usado nas rotas do Zuul, que aponta para o NOME DO PROCESSO-SERVICE, não deste.
+    name: api-gateway
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    # register-with-eureka/fetch-registry NÃO aparecem aqui (diferente do eureka-server) porque
+    # o padrão de um CLIENTE Eureka já é "true" para os dois — o api-gateway precisa se registrar
+    # (para aparecer no dashboard) E baixar o catálogo (para resolver "processo-service" em rota).
+
+zuul:
+  routes:
+    # Nome da rota (chave livre, mas convencionamos = ao serviceId, para ficar óbvio). Só existe
+    # UMA entrada aqui porque só há um serviço de domínio hoje — cada novo microsserviço ganharia
+    # sua própria entrada, tipicamente com um "path" mais específico (ex.: "/api/pagamentos/**"
+    # para um hipotético pagamento-service), em vez do catch-all "/**" usado abaixo.
+    processo-service:
+      path: /**
+      # serviceId (não uma URL fixa!) — é isto que faz o Zuul perguntar ao Eureka "onde está,
+      # AGORA, uma instância registrada como 'processo-service'?" a cada requisição, em vez de
+      # apontar para um host:porta fixo. Se o processo-service subir em outra máquina/porta
+      # amanhã, nada muda aqui — o Eureka já vai devolver o endereço atualizado.
+      serviceId: processo-service
+
+  # -----------------------------------------------------------------------------------------
+  # sensitiveHeaders: '' — A PEGADINHA MAIS COMUM DE QUEM CONFIGURA ZUUL + JWT PELA PRIMEIRA VEZ.
+  # Por padrão, o Zuul REMOVE certos headers "sensíveis" (Cookie, Set-Cookie e, principalmente,
+  # Authorization) ao encaminhar a requisição para o serviço de destino — pensado originalmente
+  # para não vazar cookies de sessão entre domínios diferentes atrás do mesmo gateway. Só que isso
+  # também apaga o header "Authorization: Bearer <token>" antes de chegar no processo-service —
+  # que TEM SEU PRÓPRIO SecurityConfig (Fase 5) exigindo esse header. Sem esta linha, TODA
+  # requisição autenticada funcionaria aqui no gateway (o JwtValidationZuulFilter validaria certo)
+  # e ainda assim voltaria 401 do processo-service, porque o token nunca chegou lá.
+  # Sobrescrever para string vazia desliga essa lista de remoção — o Authorization passa adiante
+  # intacto. Ver docs/09-notas-para-prova.md para o motivo disso ser tão comum de esquecer.
+  # -----------------------------------------------------------------------------------------
+  sensitiveHeaders: ''
+
+# jwt.secret precisa ser o MESMO valor configurado no processo-service (application.yml de lá) —
+# os dois lados assinam/validam com a mesma chave HMAC. Em qualquer ambiente real, os dois
+# apontariam para a MESMA variável de ambiente JWT_SECRET (ex.: injetada pelo mesmo Secret do
+# Kubernetes/Docker Compose), nunca duas strings hardcoded que "por acaso" precisam bater.
+jwt:
+  secret: ${JWT_SECRET:sgp-processos-estudo-trt4-chave-apenas-para-uso-local-nao-usar-em-producao}
+
+# ---------------------------------------------------------------------------------------------
+# ribbon.httpclient.enabled: true (Fase 6 — corrigindo um bug real encontrado testando)
+#
+# O Zuul usa o Ribbon (balanceamento de carga no lado do cliente) para de fato FAZER a chamada
+# HTTP até a instância resolvida do processo-service. Por padrão, o Ribbon escolhe entre 3
+# implementações de cliente HTTP possíveis; sem forçar uma delas, este projeto caiu na
+# implementação legada ("RestClient"), que tem um bug conhecido e antigo ao reencaminhar o CORPO
+# de requisições POST/PUT: o log acusava "Content-length different from byte array length!
+# cl=357, array=0" — o Ribbon declarava um Content-Length pro processo-service, mas não
+# conseguia de fato ler/reenviar os bytes do corpo original, causando ClientAbortException
+# (EOFException) do lado do processo-service, e 504/500 do lado do cliente.
+# Forçar o Apache HttpClient (mais moderno, mantido ativamente) resolve — é a correção mais
+# citada para esse sintoma específico no ecossistema Zuul 1.
+# ---------------------------------------------------------------------------------------------
+ribbon:
+  httpclient:
+    enabled: true
+  restclient:
+    enabled: false

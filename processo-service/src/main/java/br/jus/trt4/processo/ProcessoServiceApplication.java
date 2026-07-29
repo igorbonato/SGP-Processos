@@ -4,13 +4,17 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 /**
- * Ponto de entrada do processo-service — mas com uma responsabilidade extra em relação ao
+ * Ponto de entrada do processo-service — mas com duas responsabilidades extras em relação ao
  * EurekaServerApplication (eureka-server): precisa saber arrancar de DUAS formas diferentes,
- * porque este módulo é empacotado como WAR (ver processo-service/pom.xml).
+ * porque este módulo é empacotado como WAR (ver processo-service/pom.xml); e, desde a Fase 6,
+ * também se registra no Eureka (@EnableDiscoveryClient), para o api-gateway conseguir rotear
+ * até aqui por "serviceId", não por um host:porta fixo.
  */
 @SpringBootApplication
+@EnableDiscoveryClient
 public class ProcessoServiceApplication extends SpringBootServletInitializer {
 
     /**

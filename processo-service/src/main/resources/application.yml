@@ -10,6 +10,15 @@ server:
   # final nunca vê esta porta diretamente.
   port: 8081
 
+# eureka (Fase 6): o processo-service é um CLIENTE Eureka comum (mesmo racional do api-gateway) —
+# se registra ao subir e manda heartbeat periódico para o eureka-server confirmar que continua
+# vivo. Sem "register-with-eureka"/"fetch-registry" explícitos aqui: o padrão de um client já é
+# "true" para os dois (diferente do eureka-server, que precisa desligar isso explicitamente).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
 spring:
   application:
     name: processo-service

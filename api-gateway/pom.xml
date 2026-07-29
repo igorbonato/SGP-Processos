@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.jus.trt4</groupId>
+        <artifactId>sgp-processos</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>api-gateway</artifactId>
+    <name>api-gateway</name>
+    <description>
+        Porta de entrada única da plataforma (Zuul). Roteia para o processo-service via Eureka
+        e faz uma validação "grosseira" do JWT antes de encaminhar a requisição — ver
+        docs/06-seguranca-e-observabilidade.md para o porquê de existir validação em duas camadas.
+    </description>
+
+    <dependencies>
+        <!--
+            spring-cloud-starter-netflix-zuul: o "starter" que transforma este processo Spring
+            Boot comum em um API Gateway — traz o Netflix Zuul em si, o Ribbon (balanceamento de
+            carga no lado do CLIENTE, usado internamente pelo Zuul para escolher QUAL instância
+            de "processo-service" chamar quando há mais de uma registrada no Eureka) e a
+            auto-configuração que liga tudo isso a partir da anotação @EnableZuulProxy.
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-zuul</artifactId>
+        </dependency>
+
+        <!--
+            spring-cloud-starter-netflix-eureka-client: faz este processo se REGISTRAR no
+            eureka-server (register-with-eureka, ligado por padrão — diferente do próprio
+            eureka-server, que desliga isso) E baixar/cachear a lista de outros serviços
+            registrados (fetch-registry) — é essa lista que o Zuul consulta para resolver
+            "serviceId: processo-service" (ver application.yml) num host:porta real.
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            JJWT — o api-gateway faz sua PRÓPRIA validação de token (ver filter/JwtValidationZuulFilter),
+            independente da que o processo-service já faz. Não existe um módulo Java compartilhado
+            entre os dois só para isso (seria over-engineering para dois usos tão pontuais) — os
+            dois lados precisam apenas concordar no mesmo "jwt.secret" (ver application.yml).
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>api-gateway</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

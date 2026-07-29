@@ -103,6 +103,7 @@
     <modules>
         <module>eureka-server</module>
         <module>processo-service</module>
+        <module>api-gateway</module>
     </modules>
 
     <!--
