@@ -8,6 +8,37 @@
 
 ---
 
+## 3. APIs e Web Services
+
+### OpenAPI, Swagger e springdoc — qual é a especificação e qual é a ferramenta?
+
+**OpenAPI Specification** é o padrão (hoje mantido pela OpenAPI Initiative/Linux Foundation) que
+descreve um contrato REST em JSON/YAML — de que endpoints existem a que schema cada campo tem.
+"Swagger" é a marca das ferramentas construídas em torno dessa spec (ela, aliás, se chamava
+"Swagger Specification" antes de ser doada e renomeada). **springdoc-openapi** é a biblioteca
+concreta escolhida aqui para GERAR essa especificação em tempo de execução, lendo os
+`@RestController` via reflection — poderíamos trocar por "springfox" (a biblioteca mais antiga
+que fazia o mesmo papel, hoje descontinuada) sem mudar uma linha dos controllers.
+
+> **Pegadinha:** perguntas de edital que dizem só "Swagger" geralmente querem dizer "documentação
+> de API compatível com OpenAPI", não uma biblioteca específica — é a mesma armadilha de nome de
+> `05-especificacao-vs-implementacao.md` (JPA vs Hibernate), aplicada a APIs. Paralelo .NET:
+> Swashbuckle.AspNetCore é o "springdoc" do ecossistema .NET — mesma spec (OpenAPI é agnóstica de
+> linguagem), biblioteca geradora diferente.
+>
+> _Fonte: [`OpenApiConfig.java`](../processo-service/src/main/java/br/jus/trt4/processo/config/OpenApiConfig.java), Fase 4._
+
+### springdoc-openapi 1.x vs 2.x — por que importa qual eu uso?
+
+A série **1.x** do springdoc gera documentação para projetos Spring Boot 2.x (namespace
+`javax.*`); a série **2.x** exige Spring Boot 3 (`jakarta.*`). Mesma lógica de trem de versões já
+vista com Spring Cloud/Zuul (`04`/`05`) — misturar a série errada com a versão de Boot do projeto
+quebra a auto-configuração silenciosamente ou nem resolve as dependências.
+>
+> _Fonte: `pom.xml` raiz (propriedade `springdoc.version`), Fase 4._
+
+---
+
 ## 2. Frameworks Java
 
 ### Jakarta EE 8 usa o namespace `javax.*` ou `jakarta.*`?

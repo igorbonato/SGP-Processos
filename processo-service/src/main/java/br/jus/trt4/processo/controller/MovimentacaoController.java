@@ -3,6 +3,9 @@ package br.jus.trt4.processo.controller;
 import br.jus.trt4.processo.dto.request.MovimentacaoRequestDTO;
 import br.jus.trt4.processo.dto.response.MovimentacaoResponseDTO;
 import br.jus.trt4.processo.service.MovimentacaoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +21,7 @@ import java.util.List;
 // Controller próprio para o sub-recurso "movimentações" de um processo — path aninhado sob
 // /api/processos/{processoId}, porque uma Movimentacao só existe vinculada a um Processo (ver
 // docs/02): não faz sentido uma rota "/api/movimentacoes" solta, sem contexto de qual processo.
+@Tag(name = "Movimentações", description = "Histórico de movimentações de um Processo (entidade filha)")
 @RestController
 @RequestMapping("/api/processos/{processoId}/movimentacoes")
 public class MovimentacaoController {
@@ -28,6 +32,10 @@ public class MovimentacaoController {
         this.movimentacaoService = movimentacaoService;
     }
 
+    @Operation(summary = "Adiciona uma movimentação ao processo")
+    @ApiResponse(responseCode = "201", description = "Movimentação registrada")
+    @ApiResponse(responseCode = "404", description = "Processo não encontrado")
+    @ApiResponse(responseCode = "422", description = "Processo arquivado — não aceita novas movimentações")
     @PostMapping
     public ResponseEntity<MovimentacaoResponseDTO> adicionar(@PathVariable Long processoId,
                                                               @Valid @RequestBody MovimentacaoRequestDTO dto) {
@@ -37,6 +45,8 @@ public class MovimentacaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(criada);
     }
 
+    @Operation(summary = "Lista as movimentações de um processo, mais recente primeiro")
+    @ApiResponse(responseCode = "404", description = "Processo não encontrado")
     @GetMapping
     public ResponseEntity<List<MovimentacaoResponseDTO>> listar(@PathVariable Long processoId) {
         return ResponseEntity.ok(movimentacaoService.listarPorProcesso(processoId));

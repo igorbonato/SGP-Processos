@@ -4,6 +4,9 @@ import br.jus.trt4.processo.domain.StatusProcesso;
 import br.jus.trt4.processo.dto.request.ProcessoRequestDTO;
 import br.jus.trt4.processo.dto.response.ProcessoResponseDTO;
 import br.jus.trt4.processo.service.ProcessoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,6 +32,12 @@ import java.util.List;
 // @RequestMapping("/api/processos") — prefixo de rota comum a todos os métodos da classe.
 // Paralelo .NET: [Route("api/processos")] no topo do controller.
 // -------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------
+// @Tag — agrupa, na tela do Swagger UI, todos os endpoints desta classe sob o nome "Processos"
+// (em vez do agrupamento padrão do springdoc, que usaria o nome da classe). Anotação de
+// documentação PURA — não afeta em nada o comportamento HTTP real do endpoint.
+// -------------------------------------------------------------------------------------------
+@Tag(name = "Processos", description = "Gestão de Processos Judiciais (agregado raiz)")
 @RestController
 @RequestMapping("/api/processos")
 public class ProcessoController {
@@ -39,6 +48,16 @@ public class ProcessoController {
         this.processoService = processoService;
     }
 
+    // ---------------------------------------------------------------------------------------
+    // @Operation/@ApiResponse — refinam o que o springdoc já teria descoberto sozinho via
+    // reflection (rota, verbo HTTP, tipo do corpo). "summary" vira o texto curto exibido na
+    // listagem de endpoints do Swagger UI; @ApiResponse documenta os status HTTP possíveis para
+    // quem só olha a doc, sem precisar ler o código do GlobalExceptionHandler.
+    // Paralelo .NET: [SwaggerOperation]/[ProducesResponseType] do Swashbuckle — mesmo papel.
+    // ---------------------------------------------------------------------------------------
+    @Operation(summary = "Cria um novo Processo Judicial com suas Partes")
+    @ApiResponse(responseCode = "201", description = "Processo criado")
+    @ApiResponse(responseCode = "400", description = "Payload inválido (Bean Validation)")
     @PostMapping
     // -----------------------------------------------------------------------------------------
     // @Valid — dispara o Bean Validation nas anotações do ProcessoRequestDTO (@NotBlank,
@@ -64,6 +83,9 @@ public class ProcessoController {
         return ResponseEntity.created(location).body(criado);
     }
 
+    @Operation(summary = "Busca um Processo pelo id")
+    @ApiResponse(responseCode = "200", description = "Processo encontrado")
+    @ApiResponse(responseCode = "404", description = "Nenhum processo com este id")
     @GetMapping("/{id}")
     // @PathVariable extrai o "{id}" da URL. Paralelo .NET: [FromRoute] (ou implícito, se o nome
     // do parâmetro bate com o nome do segmento de rota).
@@ -71,6 +93,7 @@ public class ProcessoController {
         return ResponseEntity.ok(processoService.buscarPorId(id));
     }
 
+    @Operation(summary = "Lista Processos, opcionalmente filtrando por status")
     @GetMapping
     // @RequestParam(required = false) — filtro OPCIONAL via query string:
     // GET /api/processos?status=ARQUIVADO. Sem o parâmetro, "status" chega null e o service lista
@@ -80,6 +103,9 @@ public class ProcessoController {
         return ResponseEntity.ok(processoService.listar(status));
     }
 
+    @Operation(summary = "Arquiva um Processo (bloqueia novas movimentações)")
+    @ApiResponse(responseCode = "200", description = "Processo arquivado")
+    @ApiResponse(responseCode = "404", description = "Nenhum processo com este id")
     @PatchMapping("/{id}/arquivar")
     // PATCH (não PUT/POST) por semântica REST: esta operação altera PARCIALMENTE o recurso (só o
     // status), não o substitui inteiro (seria PUT) nem cria um novo (seria POST).

@@ -178,6 +178,25 @@
             <version>${mapstruct.version}</version>
         </dependency>
 
+        <!--
+            springdoc-openapi-ui: um ÚNICO starter que traz três coisas:
+              1) o gerador que lê os @RestController/@RequestMapping/@Valid via reflection e monta
+                 a especificação OpenAPI 3 (JSON) em tempo de EXECUÇÃO (não de build) — exposta em
+                 "/v3/api-docs";
+              2) as anotações "io.swagger.v3.oas.annotations.*" (@Operation, @Tag, @ApiResponse)
+                 usadas para refinar a documentação gerada (ver ProcessoController);
+              3) o Swagger UI embutido (HTML/JS estáticos) servido em "/swagger-ui.html", que lê o
+                 JSON do passo 1 e renderiza a tela interativa de "experimentar" cada endpoint.
+
+            Paralelo .NET: é o Swashbuckle.AspNetCore inteiro (Swashbuckle.AspNetCore.SwaggerGen +
+            .Swagger + .SwaggerUI) empacotado em um pacote só, em vez de três.
+        -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

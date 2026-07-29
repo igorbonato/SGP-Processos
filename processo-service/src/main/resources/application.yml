@@ -66,3 +66,20 @@ spring:
     # simplesmente não existe do mesmo jeito no mundo .NET.
     # -----------------------------------------------------------------------------------------
     open-in-view: false
+
+# ---------------------------------------------------------------------------------------------
+# springdoc — configuração da documentação OpenAPI/Swagger (Fase 4).
+# Sem ESTE bloco, o springdoc já funcionaria com os caminhos padrão dele
+# ("/v3/api-docs" e "/swagger-ui.html") — só estamos deixando explícito aqui por documentação;
+# mudar "swagger-ui.path" é útil, por exemplo, se este endpoint precisar conviver com outro
+# recurso chamado "/swagger-ui" no futuro (ex.: atrás do api-gateway, Fase 6).
+# ---------------------------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    # JSON cru da especificação OpenAPI 3 — o que o Swagger UI (abaixo) consome, e também o que
+    # ferramentas de terceiro (Postman, geradores de client) importariam.
+    path: /v3/api-docs
+  swagger-ui:
+    # Tela HTML interativa. Paralelo .NET: a página que o Swashbuckle.AspNetCore.SwaggerUI serve
+    # em "/swagger" por padrão — mesmo papel, biblioteca diferente.
+    path: /swagger-ui.html
