@@ -285,6 +285,50 @@ externo "acha" e inicia a aplicação Spring dentro do WAR, sem nunca chamar o `
 >
 > _Fonte: [`ProcessoServiceApplication.java`](../processo-service/src/main/java/br/jus/trt4/processo/ProcessoServiceApplication.java), Fase 2._
 
+### O context path muda quando o app roda em Tomcat externo — o código precisa saber disso?
+
+**Não.** Rodando embutido (`java -jar`), a aplicação vive na raiz (`http://localhost:8081/api/...`).
+Implantada como `processo-service.war` num Tomcat externo, o Tomcat usa o NOME DO ARQUIVO como
+context path por convenção — a mesma aplicação passa a viver em
+`http://localhost:9090/processo-service/api/...`, sem precisar mudar uma linha de código.
+
+> **Testado de verdade**: o header `Location` devolvido pelo `POST /api/processos` (montado via
+> `ServletUriComponentsBuilder.fromCurrentRequest()`, ver `ProcessoController`) já veio correto
+> com o prefixo `/processo-service` sozinho — porque essa classe lê a URL da requisição ATUAL,
+> nunca assume um caminho fixo. É a prova prática de por que hardcodar `"/api/processos/" + id`
+> manualmente (em vez de usar o builder) quebraria silenciosamente ao trocar de embutido para WAR.
+>
+> _Fonte: deploy real em Tomcat 9.0.120 (`webapps/processo-service.war`), Fase 8._
+
+---
+
+## 4. Elastic Stack
+
+### O appender do Logstash trava a aplicação se o ELK não estiver rodando?
+
+**Não** — e isso foi verificado de propósito, não só assumido. O `LogstashTcpSocketAppender`
+(biblioteca `logstash-logback-encoder`) é assíncrono: tenta conectar em background, falha
+silenciosamente (só grava um `WARN` no próprio log interno do Logback) e reagenda uma nova
+tentativa mais tarde — a thread que está de fato logando nunca fica bloqueada esperando o socket.
+
+> **Testado de verdade**: subimos o `processo-service` (embutido e depois via WAR no Tomcat) sem
+> nenhum Logstash rodando — startup e todas as requisições funcionaram normalmente, só com um
+> `ConnectException` recorrente no log, exatamente como projetado. Isso é o que torna seguro
+> deixar esse appender sempre ligado, mesmo em ambientes onde o ELK ainda não subiu.
+>
+> _Fonte: [`logback-spring.xml`](../processo-service/src/main/resources/logback-spring.xml), Fase 8._
+
+### `logback.xml` vs `logback-spring.xml` — por que o sufixo importa?
+
+Um `logback.xml` puro é processado pelo Logback sozinho, ANTES do Spring Boot terminar de decidir
+qual profile está ativo — cedo demais para usar `<springProfile>` (filtrar appender por
+`dev`/`prod`) ou `<springProperty>` (ler `spring.application.name` do `application.yml` dentro do
+XML de log, usado aqui para incluir o nome da aplicação como campo fixo em todo evento JSON). Com
+o sufixo `-spring`, o Spring Boot assume o controle da inicialização do Logback e processa essas
+tags Spring-específicas primeiro.
+>
+> _Fonte: [`logback-spring.xml`](../processo-service/src/main/resources/logback-spring.xml), Fase 8._
+
 ---
 
 ## 9. Banco de Dados

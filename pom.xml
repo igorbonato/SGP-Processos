@@ -159,6 +159,12 @@
              já vista com Spring Cloud/springdoc, mas desta vez sobre a ferramenta em si rodar,
              não sobre o bytecode gerado. -->
         <jacoco.version>0.8.7</jacoco.version>
+
+        <!-- logstash-logback-encoder (Fase 8): formata o log como JSON estruturado, pronto para
+             o Logstash indexar campo a campo (ver docs/06-seguranca-e-observabilidade.md). 6.6 é
+             a última série testada com Logback 1.2.x (a versão trazida pelo Spring Boot 2.3.x)
+             rodando em Java 8 — séries mais novas (7.x+) sobem o baseline de Java. -->
+        <logstash-logback-encoder.version>6.6</logstash-logback-encoder.version>
     </properties>
 
     <!--

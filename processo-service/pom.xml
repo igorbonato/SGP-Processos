@@ -255,6 +255,19 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!--
+            logstash-logback-encoder (Fase 8): NÃO substitui o Logback (que já vem transitivamente
+            via spring-boot-starter-web/-security como implementação padrão de log do Spring
+            Boot) — só adiciona um ENCODER novo (LogstashEncoder) e um APPENDER novo
+            (LogstashTcpSocketAppender) que o nosso logback-spring.xml passa a poder referenciar.
+            Ver docs/06-seguranca-e-observabilidade.md para o pipeline completo até o Kibana.
+        -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash-logback-encoder.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

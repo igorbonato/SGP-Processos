@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    =============================================================================================
+    logback-spring.xml — POR QUE "-spring" NO NOME?
+    =============================================================================================
+    Um "logback.xml" comum é lido pelo Logback sozinho, ANTES do Spring Boot sequer terminar de
+    subir — cedo demais para usar recursos do Spring, como <springProfile> (abaixo) ou
+    <springProperty> (ler valores de application.yml). "logback-spring.xml" é uma convenção que o
+    PRÓPRIO Spring Boot reconhece: ele intercepta a inicialização do Logback e processa esse
+    arquivo só depois do contexto Spring já saber qual profile está ativo — é o que permite as
+    tags <springProfile> abaixo funcionarem.
+
+    Paralelo .NET: mistura de appsettings.{Environment}.json (para o "qual ambiente") com a
+    configuração de Sinks do Serilog (para "onde o log vai") — aqui as duas coisas convivem no
+    MESMO arquivo, com <springProfile> fazendo o papel do appsettings por ambiente.
+    =============================================================================================
+-->
+<configuration>
+
+    <!-- Reaproveita os padrões de nível de log que o próprio Spring Boot já define (ex.: nível
+         INFO para org.springframework.web, DEBUG para org.hibernate.SQL se você ligar
+         "logging.level.org.hibernate.SQL=DEBUG" no application.yml) — evita reescrever do zero
+         algo que o framework já resolve bem. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- springProperty — lê um valor do application.yml (aqui, "spring.application.name") DENTRO
+         do XML do Logback, para usar como campo fixo em todo log deste processo (ver
+         customFields do appender LOGSTASH, abaixo). Sem isso, teríamos que HARDCODAR
+         "processo-service" aqui, duplicando o que já está no application.yml. -->
+    <springProperty scope="context" name="applicationName" source="spring.application.name"/>
+
+    <!--
+        =========================================================================================
+        CONSOLE — saída legível por HUMANO, para quando você está rodando localmente e olhando o
+        terminal. Não é o formato que o Elasticsearch vai indexar (esse é o do appender LOGSTASH,
+        abaixo) — os dois appenders coexistem, servindo públicos diferentes.
+        =========================================================================================
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- %X{requestId} — sintaxe do Logback para "puxe o valor 'requestId' do MDC" (ver
+                 RequestIdFilter). Fica em branco nas linhas de log que rodam fora de uma
+                 requisição HTTP (ex.: no boot da aplicação), e preenchido em todo o resto. -->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{requestId}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+        =========================================================================================
+        LOGSTASH — o appender que de fato prepara este processo para o ELK. Formato JSON
+        estruturado (LogstashEncoder), enviado via socket TCP para onde um Logstash estaria
+        escutando (porta 5000, convenção comum de input TCP do Logstash).
+        =========================================================================================
+    -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <!-- destino do Logstash. Em produção, isso viraria uma variável de ambiente (mesmo
+             padrão já usado para "jwt.secret" — ver application.yml — nunca hardcoded), mas
+             como este appender é configurado em XML puro (fora do ciclo normal de
+             application.yml), usamos a sintaxe de propriedade de sistema do próprio Logback. -->
+        <destination>${LOGSTASH_HOST:-localhost}:${LOGSTASH_PORT:-5000}</destination>
+
+        <!--
+            IMPORTANTE: este appender NÃO trava nem derruba a aplicação se o Logstash não estiver
+            rodando (cenário normal enquanto você só está estudando localmente, sem o stack ELK
+            de pé). O LogstashTcpSocketAppender já foi desenhado para ser resiliente — ele tenta
+            reconectar em background e simplesmente descarta/enfileira eventos enquanto o destino
+            está indisponível, sem bloquear a thread que está logando. Você pode rodar o
+            processo-service inteiro sem nunca ter subido um Logstash e nada quebra por causa
+            disso — é só um "não há ninguém ouvindo do outro lado" silencioso.
+        -->
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Campo fixo incluído em TODO evento — é o que permite, no Kibana, filtrar
+                 "mostre-me só os logs do processo-service", quando outros serviços (eureka-server,
+                 api-gateway) também estiverem mandando log para o mesmo Logstash/índice. -->
+            <customFields>{"application":"${applicationName}"}</customFields>
+        </encoder>
+    </appender>
+
+    <!--
+        =========================================================================================
+        <springProfile> — o MESMO mecanismo de profile do application.yml
+        (spring.profiles.active), só que aplicado à configuração de LOG em vez de configuração de
+        aplicação. Em "dev", queremos os dois appenders ativos (console legível + já mandando
+        pro Logstash, para você PRATICAR olhando o pipeline funcionando); um perfil "prod"
+        hipotético poderia, por exemplo, desligar o CONSOLE (só JSON estruturado importa em
+        produção) — não criamos esse profile aqui porque foge do escopo de estudo, mas a
+        estrutura já suporta.
+        =========================================================================================
+    -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+    </springProfile>
+
+    <!-- Fallback para qualquer profile que não seja "dev" (ex.: rodando sem
+         spring.profiles.active nenhum) — mantém pelo menos o console vivo, nunca deixa a
+         aplicação sem NENHUM appender configurado. -->
+    <springProfile name="!dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>
