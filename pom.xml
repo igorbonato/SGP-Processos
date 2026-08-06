@@ -151,6 +151,14 @@
              JPA-Hibernate (docs/05) e OpenAPI/springdoc (docs/09), agora pela quarta vez neste
              projeto. Reconhecer esse padrão é, em si, um objetivo de estudo. -->
         <jjwt.version>0.11.5</jjwt.version>
+
+        <!-- JaCoCo (Fase 7): instrumenta o bytecode durante os testes para medir cobertura.
+             0.8.7 de propósito — é a última série que RODA em cima de um JDK 8 (a partir da
+             0.8.9 o próprio plugin passa a exigir JDK 11 para EXECUTAR, mesmo que o alvo
+             instrumentado continue sendo bytecode antigo) — mesma categoria de cuidado de versão
+             já vista com Spring Cloud/springdoc, mas desta vez sobre a ferramenta em si rodar,
+             não sobre o bytecode gerado. -->
+        <jacoco.version>0.8.7</jacoco.version>
     </properties>
 
     <!--

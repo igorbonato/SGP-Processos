@@ -318,6 +318,100 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <!--
+                ===================================================================================
+                maven-failsafe-plugin — quem roda os testes de INTEGRAÇÃO (Fase 7)
+                ===================================================================================
+                Irmão do maven-surefire-plugin (que já roda os testes UNITÁRIOS sozinho, por
+                convenção, durante a fase "test" de "mvn test" — nenhuma configuração extra
+                precisou ser escrita para isso). O Failsafe faz o mesmo, mas: (1) só enxerga
+                classes terminadas em "*IT.java" (ver docs/07); (2) roda nas fases
+                "integration-test" e "verify", que só acontecem com "mvn verify" — nunca com
+                "mvn test" sozinho. É esse par de goals abaixo que liga o Failsafe a essas fases;
+                sem eles, o plugin estaria no classpath do build mas nunca executaria nada.
+                Paralelo .NET: não há essa separação por convenção de nome de arquivo — um projeto
+                de testes xUnit/NUnit tipicamente roda tudo junto, e a distinção unitário/integração
+                fica a cargo de categorias/traits (`[Trait("Category","Integration")]`) filtradas
+                manualmente no comando "dotnet test" com a flag de filtro.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                ===================================================================================
+                jacoco-maven-plugin — cobertura de código (Fase 7)
+                ===================================================================================
+                Três execuções, três papéis:
+                  1) prepare-agent: injeta um "java agent" na JVM que roda os testes — é ele quem
+                     observa, linha a linha, o que foi de fato executado. Sem isto, as outras duas
+                     execuções não teriam dado nenhum para trabalhar.
+                  2) report: gera o relatório HTML navegável em
+                     target/site/jacoco/index.html (rode "mvn test" e abra esse arquivo no
+                     navegador).
+                  3) check: o "gate" de verdade — FALHA O BUILD se a cobertura de linha do pacote
+                     "service.impl" (onde mora a regra de negócio orquestrada pelos services, ver
+                     docs/03) ficar abaixo de 70%. Escolhemos "service.impl" e não o projeto
+                     inteiro de propósito: exigir 70% em getters/setters de DTO ou em
+                     configuração (SecurityConfig) seria uma métrica sem sentido — cobertura
+                     importa onde existe LÓGICA para errar.
+                Paralelo .NET: Coverlet + um gate manual no pipeline de CI checando o `.cobertura.xml`
+                gerado — no Java, o "falhar o build sozinho" já vem embutido no plugin via este
+                goal "check", sem precisar de um script extra de CI para interpretar o relatório.
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>br.jus.trt4.processo.service.impl</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

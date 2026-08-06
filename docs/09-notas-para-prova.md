@@ -313,6 +313,44 @@ quanto pelo PostgreSQL 10+ (prod) sem alterar o script. `SERIAL` é proprietári
 
 ---
 
+## 6. Testes de Software
+
+### Surefire vs Failsafe — por que dois plugins para rodar testes?
+
+`maven-surefire-plugin` roda testes **unitários** (`*Test.java`), na fase `test` — acionado por
+`mvn test` sozinho. `maven-failsafe-plugin` roda testes de **integração** (`*IT.java`), nas fases
+`integration-test`/`verify` — só acionado por `mvn verify`. A separação por SUFIXO DE NOME (não
+por anotação) é uma convenção pura do Maven: um `*Test.java` dentro de `integration/` ainda seria
+pego pelo Surefire se terminasse em "Test", já que quem decide é o nome do arquivo, não a pasta.
+
+> **Pegadinha:** rodar só `mvn test` durante o dia a dia (ciclo rápido) e reservar `mvn verify`
+> (mais lento — sobe Spring, H2, Flyway) para antes de um commit/PR é a prática real por trás
+> dessa separação: testes de integração são caros demais para rodar a cada `Ctrl+S`.
+>
+> _Fonte: [`processo-service/pom.xml`](../processo-service/pom.xml) (plugin `maven-failsafe-plugin`), Fase 7._
+
+### JaCoCo: por que a versão do plugin importa tanto quanto a versão da lib?
+
+Mesma categoria de cuidado já vista com Spring Cloud/springdoc/JJWT, mas desta vez sobre a
+FERRAMENTA DE BUILD em si, não sobre uma dependência do código: a partir do JaCoCo 0.8.9, o
+próprio plugin passa a EXIGIR um JDK 11+ para **rodar** (mesmo instrumentando/medindo bytecode de
+um projeto Java 8). Como este projeto compila com JDK 8, fixamos JaCoCo em `0.8.7` — a última
+série que roda em cima de um JDK 8.
+
+> _Fonte: `pom.xml` raiz (propriedade `jacoco.version`), Fase 7._
+
+### Um teste de domínio "puro" (sem Mockito) ainda é um teste unitário?
+
+**Sim.** Mockito serve para substituir COLABORADORES EXTERNOS (repository, mapper, outro
+service). Uma entidade de domínio rica (ver `Processo`) não depende de nada externo — chamar
+`new Processo(...)` e testar o comportamento dos métodos é um teste unitário perfeitamente válido,
+só que sem precisar de dublê nenhum. Confundir "teste unitário" com "teste que usa Mockito" é um
+equívoco comum — o critério real é "testa uma unidade isolada", não "usa uma biblioteca de mock".
+>
+> _Fonte: [`ProcessoTest.java`](../processo-service/src/test/java/br/jus/trt4/processo/unit/domain/ProcessoTest.java), Fase 7._
+
+---
+
 ## Linguagem Java vs C# (fundamentos)
 
 ### Java tem "checked exceptions". O que é isso, e por que importa na hora de criar uma exceção?
