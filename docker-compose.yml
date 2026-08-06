@@ -1,0 +1,81 @@
+# =================================================================================================
+# docker-compose.yml — Stack ELK (Fase 9, OPCIONAL)
+# =================================================================================================
+# Não faz parte do roadmap principal (Fases 0-8, todas concluídas) — este arquivo existe pronto
+# para você subir quando quiser VER o pipeline de observabilidade funcionando de ponta a ponta
+# (processo-service -> Logstash -> Elasticsearch -> Kibana), sem pressa, como exercício avulso.
+#
+# O processo-service (e os outros módulos) NÃO rodam aqui dentro — continuam sendo iniciados
+# normalmente na sua máquina (ver README.md, "Como rodar"). Só o stack ELK em si roda em
+# container. Por isso "localhost:5000" no logback-spring.xml funciona sem nenhuma configuração de
+# rede extra: o Logstash publica a porta 5000 do container no localhost do host (ver "ports"
+# abaixo), e o processo-service (rodando fora do Docker) já aponta pra lá por padrão.
+#
+# Como usar:
+#   docker-compose up -d        # sobe os três serviços em background
+#   docker-compose logs -f      # acompanha os logs de inicialização
+#   docker-compose down         # derruba tudo (adicione -v para apagar os dados indexados também)
+#
+# Depois de subir (dá uns 1-2 minutos até o Elasticsearch ficar pronto):
+#   1. Suba o processo-service normalmente (fora do Docker) e faça algumas requisições.
+#   2. Abra http://localhost:5601 (Kibana).
+#   3. Crie um "index pattern" apontando para "sgp-processos-*" (ver logstash.conf).
+#   4. Explore os logs em Discover — filtre por "requestId" para ver todas as linhas de UMA
+#      requisição específica (ver RequestIdFilter.java).
+# =================================================================================================
+services:
+  elasticsearch:
+    # Série 7.17.x: última geração "7.x" (licença Elastic mais permissiva para uso local que a
+    # 8.x, que já vem com segurança/TLS obrigatórios por padrão — desnecessário para estudo).
+    # Se a tag abaixo não existir mais quando você for rodar, troque por qualquer "7.17.x" atual.
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.24
+    container_name: sgp-elasticsearch
+    environment:
+      # "single-node": sem isso, o Elasticsearch espera outros nós do cluster aparecerem e nunca
+      # fica "green" sozinho — clusters de verdade têm 3+ nós, aqui é só 1 pra estudo.
+      - discovery.type=single-node
+      # Desliga autenticação/TLS (login, certificados) — errado para produção, correto para não
+      # gastar a Fase 9 inteira configurando certificado autoassinado só para estudar logging.
+      - xpack.security.enabled=false
+      # Heap pequeno de propósito — o padrão do Elasticsearch (metade da RAM da máquina) é
+      # overkill para um projeto de estudo rodando ao lado de 3 outros processos Java.
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - sgp-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.24
+    container_name: sgp-logstash
+    volumes:
+      # Monta APENAS a pasta de pipeline (somente leitura) — o container usa a imagem oficial sem
+      # nenhuma alteração, só aponta para a nossa configuração de input/output.
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      # 5000 — a MESMA porta que logback-spring.xml usa como destino padrão
+      # (${LOGSTASH_PORT:-5000}). Se você mudar aqui, mude lá também (ou exporte a variável de
+      # ambiente LOGSTASH_PORT ao rodar o processo-service).
+      - "5000:5000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.24
+    container_name: sgp-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+volumes:
+  sgp-es-data:
